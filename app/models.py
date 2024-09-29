@@ -7,6 +7,7 @@ from sqlalchemy.ext.mutable import MutableList
 from app.extensions import db
 
 
+# User Models
 class RolesUsers(db.Model):
     __tablename__ = 'roles_users'
     id = db.Column(db.Integer(), primary_key=True)

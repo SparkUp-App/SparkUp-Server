@@ -2,34 +2,36 @@ import re
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_restx import Api, Namespace, Resource, fields
+from flask_security import hash_password, verify_password, login_user
 
 from app.utils import jsonify_response
 from app.models import user_datastore
 from app.extensions import db
 
 auth_bp = Blueprint('auth_bp', __name__)
-api = Api(
+auth_api = Api(
     auth_bp,
     version='1.0',
     title='Auth API',
     description='Auth API',
     doc='/docs',
 )
-ns = Namespace('', description='Authentication operations')
-api.add_namespace(ns)
+auth_ns = auth_api.namespace('', description='Authentication operations')
 
-user_model = api.model('User', {
+# Models
+user_model = auth_api.model('User', {
     'email': fields.String(required=True),
     'password': fields.String(required=True),
 })
 
 
-@ns.route('/register', methods=['POST'])
+# Routes
+@auth_ns.route('/register', methods=['POST'])
 class Register(Resource):
-    @api.expect(user_model)
-    @api.response(201, 'User registered successfully')
-    @api.response(400, 'Validation error')
-    @api.response(409, 'User already exists')
+    @auth_api.expect(user_model)
+    @auth_api.response(201, 'User registered successfully')
+    @auth_api.response(400, 'Validation error')
+    @auth_api.response(409, 'User already exists')
     def post(self):
         data = request.get_json()
         required_fields = ['email', 'password']
@@ -58,8 +60,9 @@ class Register(Resource):
         try:
             new_user = user_datastore.create_user(
                 email=data['email'],
-                password=data['password']
+                password=hash_password(data['password']),
             )
+            login_user(new_user)
 
             current_app.logger.info(f"User registered successfully: {data['email']}")
 
@@ -81,3 +84,49 @@ class Register(Resource):
 
         finally:
             db.session.close()
+
+
+@auth_ns.route('/login', methods=['POST'])
+class Login(Resource):
+    @auth_api.expect(user_model)
+    @auth_api.response(200, 'User logged successfully')
+    @auth_api.response(400, 'Validation error')
+    @auth_api.response(401, 'Invalid login credentials')
+    def post(self):
+        data = request.get_json()
+        required_fields = ['email', 'password']
+
+        # Check required fields
+        for field in required_fields:
+            if field not in data:
+                current_app.logger.info(f"Login failed: {field.capitalize()} is required")
+                return jsonify_response({'message': 'Login field and password are required'}, 400)
+
+        # Check user
+        user = user_datastore.find_user(email=data['email'])
+        if not user or not verify_password(data['password'], user.password):
+            if not user:
+                current_app.logger.error(f"Login attempt failed for unregistered email: {data['email']}")
+            else:
+                current_app.logger.error(f"Login attempt failed for login field: {data['email']} due to incorrect password")
+            return jsonify_response({'message': 'Invalid login credentials'}, 401)
+
+        try:
+            user = db.session.merge(user)
+            login_user(user)
+
+            current_app.logger.info(f"User login successfully: {user.id}, email: {user.email}")
+
+            return jsonify_response({
+                'message': 'User login successfully',
+                'user_id': user.id,
+            }, 200)
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Failed to login user: {e}")
+            return jsonify_response({
+                'error': str(e),
+                'message': 'An error occurred during login'},
+                500
+            )
