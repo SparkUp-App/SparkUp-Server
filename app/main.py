@@ -28,6 +28,7 @@ def create_app():
     security.init_app(app, user_datastore)
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(profile_bp, url_prefix='/profile')
 
     @app.errorhandler(HTTPException)
     def http_exception_handler(error):
