@@ -29,6 +29,7 @@ def create_app():
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(profile_bp, url_prefix='/profile')
+    app.register_blueprint(post_bp, url_prefix='/post')
 
     @app.errorhandler(HTTPException)
     def http_exception_handler(error):

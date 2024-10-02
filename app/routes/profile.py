@@ -206,12 +206,11 @@ class ProfileUpdate(Resource):
 
         return jsonify_response({'message': f"User {user_id} profile created/updated successfully"}, 201)
 
-    @profile_ns.route('/view/<int:id>')
+    @profile_ns.route('/view/<int:user_id>')
     class ProfileView(Resource):
         @profile_ns.response(200, 'Profile retrieved successfully.')
         @profile_ns.response(404, 'Profile not found')
-        def get(self, id):
-            """Retrieve a profile by its ID"""
-            profile = Profile.query.get_or_404(id)
+        def get(self, user_id):
+            profile = Profile.query.get_or_404(user_id)
             current_app.logger.info(f"Profile retrieved: {profile.serialize()}")
             return jsonify_response(profile.serialize(), 200)

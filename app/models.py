@@ -1,11 +1,13 @@
 import uuid
 from enum import Enum as PyEnum
 from collections import OrderedDict
+from datetime import datetime, timezone
 
 from flask_security import SQLAlchemyUserDatastore, UserMixin, RoleMixin, AsaList
 
 from sqlalchemy import PickleType, Enum as SQLEnum
-from sqlalchemy.ext.mutable import MutableList
+from sqlalchemy.ext.mutable import MutableList, MutableDict
+from sqlalchemy.testing.pickleable import Order
 
 from app.extensions import db
 
@@ -37,6 +39,45 @@ class User(UserMixin, db.Model):
         'Role',
         secondary='roles_users',
         backref=db.backref('users', lazy='dynamic')
+    )
+
+    profile = db.relationship(
+        'Profile',
+        back_populates='user',
+        uselist=False,
+        cascade='all, delete-orphan',
+        foreign_keys='Profile.id',
+    )
+
+    posts = db.relationship('Post',
+                            back_populates='user',
+                            lazy='select',
+                            cascade='all, delete-orphan')
+
+    liked_comments = db.relationship(
+        'CommentLike',
+        back_populates='user',
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+    )
+
+    liked_posts = db.relationship('PostLike',
+                                  back_populates='user',
+                                  lazy='dynamic',
+                                  cascade='all, delete-orphan')
+
+    comments = db.relationship('Comment',
+                               back_populates='user',
+                               lazy='dynamic',
+                               cascade='all, delete-orphan')
+
+    applied_posts = db.relationship('PostApplicant', back_populates='user')
+
+    bookmarked_posts = db.relationship(
+        'PostBookmark',
+        back_populates='user',
+        lazy='select',
+        cascade='all, delete-orphan',
     )
 
     def __init__(self, **kwargs):
@@ -122,6 +163,7 @@ class ReligionEnum(PyEnum):
     OTHER = 'Other'
     PREFER_NOT_TO_SAY = 'Prefer not to say'
 
+
 class SexualityEnum(PyEnum):
     STRAIGHT = 'Straight'
     GAY = 'Gay'
@@ -192,6 +234,8 @@ class Profile(db.Model):
     languages = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
     interest_types = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
 
+    user = db.relationship("User", back_populates="profile")
+
     def serialize(self):
         return OrderedDict([
             ('id', self.id),
@@ -221,3 +265,167 @@ class Profile(db.Model):
             ('languages', self.languages),
             ('interest_types', self.interest_types)
         ])
+
+
+# Post Models
+class Post(db.Model):
+    __tablename__ = 'posts'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    type = db.Column(db.String(50))
+    user_id = db.Column(db.Integer,
+                        db.ForeignKey('users.id', ondelete='CASCADE'),
+                        nullable=False)
+
+    post_created_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    post_last_updated_date = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    title = db.Column(db.Text, nullable=False)
+    content = db.Column(db.UnicodeText, nullable=False)
+    event_start_date = db.Column(db.DateTime, nullable=False)
+    event_end_date = db.Column(db.DateTime, nullable=False)
+    number_of_people_required = db.Column(db.Integer, nullable=False)
+    location = db.Column(db.Text, nullable=False)
+    skills = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
+    personalities = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
+    languages = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
+    attributes = db.Column(MutableDict.as_mutable(PickleType), default=lambda: {})
+    likes = db.relationship('PostLike',
+                            back_populates='post',
+                            lazy=True,
+                            cascade='all, delete-orphan')
+
+    user = db.relationship('User', back_populates='posts')
+
+    comments = db.relationship('Comment',
+                               back_populates='post',
+                               lazy=True,
+                               cascade='all, delete-orphan')
+
+    applicants = db.relationship('PostApplicant', back_populates='post', cascade='all, delete-orphan')
+
+    bookmarked_users = db.relationship('PostBookmark',
+                                       back_populates='post',
+                                       lazy=True,
+                                       cascade='all, delete-orphan')
+
+    def serialize(self):
+        return OrderedDict([
+            ('id', self.id),
+            ('type', self.type),
+            ('title', self.title),
+            ('content', self.content),
+            ('event_start_date', self.event_start_date.strftime('%Y-%m-%d %H:%M:%S')),
+            ('event_end_date', self.event_end_date.strftime('%Y-%m-%d %H:%M:%S')),
+            ('number_of_people_required', self.number_of_people_required),
+            ('location', self.location),
+            ('skills', self.skills),
+            ('personalities', self.personalities),
+            ('languages', self.languages),
+            ('attributes', self.attributes),
+            ('likes', len(self.likes)),
+            ('bookmarks', len(self.bookmarked_users)),
+            ('comments', len(self.comments)),
+            ('applicants', len(self.applicants))
+        ])
+
+
+class PostLike(db.Model):
+    __tablename__ = 'post_likes'
+    user_id = db.Column(db.Integer,
+                        db.ForeignKey('users.id', ondelete='CASCADE'),
+                        primary_key=True)
+    post_id = db.Column(db.Integer,
+                        db.ForeignKey('posts.id', ondelete='CASCADE'),
+                        primary_key=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    user = db.relationship('User', back_populates='liked_posts')
+    post = db.relationship('Post', back_populates='likes')
+
+
+class PostBookmark(db.Model):
+    __tablename__ = 'post_bookmarks'
+    user_id = db.Column(db.Integer,
+                        db.ForeignKey('users.id', ondelete='CASCADE'),
+                        primary_key=True)
+    post_id = db.Column(db.Integer,
+                        db.ForeignKey('posts.id', ondelete='CASCADE'),
+                        primary_key=True)
+    created_at = db.Column(db.DateTime,
+                           default=lambda: datetime.now(timezone.utc))
+    user = db.relationship('User', back_populates='bookmarked_posts')
+    post = db.relationship('Post', back_populates='bookmarked_users')
+
+
+class PostApplicant(db.Model):
+    __tablename__ = 'post_applicants'
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
+    content = db.Column(db.UnicodeText, default='', nullable=False)
+    applied_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    review_status = db.Column(db.Integer, default=0, nullable=False)  # 0: still reviewing, 1: rejected, 2: matched
+
+    post = db.relationship('Post', back_populates='applicants')
+    user = db.relationship('User', back_populates='applied_posts')
+
+
+class Comment(db.Model):
+    __tablename__ = 'comments'
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer,
+                        db.ForeignKey('posts.id', ondelete='CASCADE'),
+                        nullable=False)
+    user_id = db.Column(db.Integer,
+                        db.ForeignKey('users.id', ondelete='CASCADE'),
+                        nullable=True)
+    content = db.Column(db.UnicodeText, nullable=False)
+    comment_created_date = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False)
+    comment_last_updated_date = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    floor = db.Column(db.Integer, nullable=False)
+    likes = db.relationship('CommentLike',
+                            backref='comment',
+                            lazy=True,
+                            cascade='all, delete-orphan')
+
+    post = db.relationship('Post', back_populates='comments')
+    user = db.relationship('User', back_populates='comments')
+
+    def serialize(self):
+        comment_dict = OrderedDict([
+            ('id', self.id),
+            ('post_id', self.post_id),
+            ('user_id', self.user_id),
+            ('content', self.content),
+            ('comment_created_date', self.comment_created_date.strftime('%Y-%m-%d %H:%M:%S')),
+            ('comment_last_updated_date', self.comment_last_updated_date.strftime('%Y-%m-%d %H:%M:%S')),
+            ('floor', self.floor),
+            ('likes', len(self.likes)),
+        ])
+        if self.user:
+            comment_dict['nickname'] = self.user.nickname
+            comment_dict['liked'] = db.session.query(CommentLike).filter_by(comment_id=self.id,
+                                                                            user_id=self.user_id).exists().scalar()
+        return comment_dict
+
+
+class CommentLike(db.Model):
+    __tablename__ = 'comment_likes'
+    user_id = db.Column(db.Integer,
+                        db.ForeignKey('users.id', ondelete='CASCADE'),
+                        primary_key=True)
+    comment_id = db.Column(db.Integer,
+                           db.ForeignKey('comments.id', ondelete='CASCADE'),
+                           primary_key=True)
+    created_at = db.Column(db.DateTime,
+                           default=lambda: datetime.now(timezone.utc))
+    user = db.relationship('User', back_populates='liked_comments')
