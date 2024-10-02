@@ -101,7 +101,11 @@ class PostCreate(Resource):
         db.session.add(post)
         db.session.commit()
 
-        return jsonify_response({'message': f"Post {post.id} created successful"}, 201)
+        return jsonify_response({
+            'post_id': post.id,
+            'message': f"Post {post.id} created successful"},
+            201
+        )
 
 
 @post_ns.route('/view/<int:post_id>')
