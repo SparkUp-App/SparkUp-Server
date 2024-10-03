@@ -137,35 +137,35 @@ class ProfileUpdate(Resource):
             profile_ns.abort(400, f'Invalid date for dob: {data["dob"]}, use YYY-MM-DD format')
 
         # Check enums
-        if 'education_level' in data:
+        if 'education_level' in data and data['education_level'] is not None:
             data['education_level'] = EducationLevelEnum(data['education_level'])
         else:
             data['education_level'] = EducationLevelEnum.PREFER_NOT_TO_SAY
-        if 'mbti' in data:
+        if 'mbti' in data and data['mbti'] is not None:
             data['mbti'] = MBTIEnum(data['mbti'])
         else:
             data['mbti'] = MBTIEnum.PREFER_NOT_TO_SAY
-        if 'constellation' in data:
+        if 'constellation' in data and data['constellation'] is not None:
             data['constellation'] = ConstellationEnum(data['constellation'])
         else:
             data['constellation'] = ConstellationEnum.PREFER_NOT_TO_SAY
-        if 'blood_type' in data:
+        if 'blood_type' in data and data['blood_type'] is not None:
             data['blood_type'] = BloodTypeEnum(data['blood_type'])
         else:
             data['blood_type'] = BloodTypeEnum.PREFER_NOT_TO_SAY
-        if 'religion' in data:
+        if 'religion' in data and data['religion'] is not None:
             data['religion'] = ReligionEnum(data['religion'])
         else:
             data['religion'] = ReligionEnum.PREFER_NOT_TO_SAY
-        if 'sexuality' in data:
+        if 'sexuality' in data and data['sexuality'] is not None:
             data['sexuality'] = SexualityEnum(data['sexuality'])
         else:
             data['sexuality'] = SexualityEnum.PREFER_NOT_TO_SAY
-        if 'ethnicity' in data:
+        if 'ethnicity' in data and data['ethnicity'] is not None:
             data['ethnicity'] = EthnicityEnum(data['ethnicity'])
         else:
             data['ethnicity'] = EthnicityEnum.PREFER_NOT_TO_SAY
-        if 'diet' in data:
+        if 'diet' in data and data['diet'] is not None:
             data['diet'] = DietEnum(data['diet'])
         else:
             data['diet'] = DietEnum.PREFER_NOT_TO_SAY

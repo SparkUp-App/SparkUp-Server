@@ -30,7 +30,6 @@ class DictItem(fields.Raw):
         return dct or {}
 
 
-# Models
 post_model = post_api.model(
     'BasePost',
     {
@@ -50,7 +49,6 @@ post_model = post_api.model(
 )
 
 
-# Routes
 @post_ns.route('/create')
 class PostCreate(Resource):
     @post_ns.expect(post_model)
@@ -82,7 +80,7 @@ class PostCreate(Resource):
             event_end_date = datetime.strptime(data['event_end_date'], '%Y-%m-%d').date()
         except ValueError as e:
             current_app.logger.error(e)
-            post_ns.abort(400, f'Invalid date format, use YYY-MM-DD format')
+            post_ns.abort(400, f'Invalid date format, use YYYY-MM-DD format')
 
         post = Post()
         post.user_id = data['user_id']
@@ -106,6 +104,17 @@ class PostCreate(Resource):
             'message': f"Post {post.id} created successful"},
             201
         )
+
+
+post_list_query_model = post_api.model(
+    'PostListQuery',
+    {
+        'user_id': fields.Integer(required=True, description='User ID'),
+        'sort': fields.Integer(required=True, description='Sort, 0: For You, 1: All'),
+        'type': fields.String(description='Type of the post'),
+
+    }
+)
 
 
 @post_ns.route('/view/<int:post_id>')
