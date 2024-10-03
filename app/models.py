@@ -312,9 +312,25 @@ class Post(db.Model):
                                        lazy=True,
                                        cascade='all, delete-orphan')
 
-    def serialize(self):
+    def serialize(self, simple=False):
+        if simple:
+            return OrderedDict([
+                ('id', self.id),
+                ('nickname', self.user.profile.nickname),
+                ('type', self.type),
+                ('title', self.title),
+                ('event_start_date', self.event_start_date.strftime('%Y-%m-%d %H:%M:%S')),
+                ('event_end_date', self.event_end_date.strftime('%Y-%m-%d %H:%M:%S')),
+                ('number_of_people_required', self.number_of_people_required),
+                ('likes', len(self.likes)),
+                ('bookmarks', len(self.bookmarked_users)),
+                ('comments', len(self.comments)),
+                ('applicants', len(self.applicants))
+            ])
         return OrderedDict([
             ('id', self.id),
+            ('user_id', self.user_id),
+            ('nickname', self.user.profile.nickname),
             ('type', self.type),
             ('title', self.title),
             ('content', self.content),

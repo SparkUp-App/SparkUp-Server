@@ -1,14 +1,13 @@
-from pdb import post_mortem
 from datetime import datetime
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_migrate import current
 from flask_restx import Api, Resource, fields
-from flask_restx.fields import Nested
+from sqlalchemy import case
 
 from app.utils import jsonify_response
 from app.extensions import db
-from app.models import Post, User
+from app.models import Post, User, Profile
 
 post_bp = Blueprint('post_bp', __name__)
 post_api = Api(
@@ -109,12 +108,68 @@ class PostCreate(Resource):
 post_list_query_model = post_api.model(
     'PostListQuery',
     {
-        'user_id': fields.Integer(required=True, description='User ID'),
-        'sort': fields.Integer(required=True, description='Sort, 0: For You, 1: All'),
+        'user_id': fields.Integer(description='User ID'),
+        'sort': fields.Integer(description='Sort, 0: For You, 1: All. Default = 1: All'),
         'type': fields.String(description='Type of the post'),
-
+        'keyword': fields.String(description='Keyword for search'),
+        'page': fields.Integer(description='Page number of the results, defaults to 1'),
+        'per_page': fields.Integer(description='Number of posts per page, defaults to 20'),
     }
 )
+
+
+@post_ns.route('/list/<int:user_id>')
+class PostList(Resource):
+    @post_ns.expect(post_list_query_model)
+    @post_ns.response(201, 'Post successfully listed')
+    @post_ns.response(400, 'Bad Request')
+    def post(self, user_id):
+        data = request.get_json()
+        query = Post.query
+
+        current_app.logger.info(f"Getting posts by user: {user_id} with request: {data}")
+
+        # Filter and Sort
+        if 'user_id' in data and data['user_id'] is not None:
+            query = query.filter(Post.user_id == data['user_id'])
+        if 'type' in data and data['type'] is not None:
+            query = query.filter(Post.type == data['type'])
+        if 'keyword' in data and data['keyword'] is not None:
+            query = query.filter(Post.title.ilike(f'%{data["keyword"]}%'))
+        if data.get('sort', 1) == 0:
+
+            # Recommendation System
+            if 'type' not in data or data['type'] is None:
+                profile = Profile.query.get(user_id)
+                if profile and profile.interest_types != []:
+                    query = query.order_by(
+                        case(
+                            (Post.type.in_(profile.interest_types), 0),
+                            else_=1
+                        )
+                    )
+            query = query.order_by(Post.post_last_updated_date.desc())
+        else:
+            query = query.order_by(Post.post_created_date.desc())
+
+        current_app.logger.info(f"Query: {str(query)}")
+
+        # Paginate
+        if 'page' not in data or data['page'] is None:
+            data['page'] = 1
+        if 'per_page' not in data or data['per_page'] is None:
+            data['per_page'] = 20
+        pagination = query.paginate(page=data['page'], per_page=data['per_page'], error_out=False)
+        posts = [post.serialize(simple=True) for post in pagination.items]
+
+        return jsonify_response({
+            'posts': posts,
+            'page': pagination.page,
+            'pages': pagination.pages,
+            'per_page': pagination.per_page
+        }, 201)
+
+
 
 
 @post_ns.route('/view/<int:post_id>')
