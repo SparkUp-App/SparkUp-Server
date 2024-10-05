@@ -1,8 +1,6 @@
-import re
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify, current_app
-from flask_migrate import current
 from flask_restx import Api, Namespace, Resource, fields
 
 from app.utils import jsonify_response

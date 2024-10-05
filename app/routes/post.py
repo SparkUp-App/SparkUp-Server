@@ -1,10 +1,7 @@
 from datetime import datetime
-from email.policy import default
-from pydoc import describe
 
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
-from pkg_resources import require
 from sqlalchemy import case, exists
 
 from app.utils import jsonify_response

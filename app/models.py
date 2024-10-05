@@ -394,13 +394,14 @@ class PostApplicant(db.Model):
 class PostComment(db.Model):
     __tablename__ = 'post_comments'
     id = db.Column(db.Integer, primary_key=True)
-    post_id = db.Column(db.Integer,
-                        db.ForeignKey('posts.id', ondelete='CASCADE'),
-                        nullable=False)
     user_id = db.Column(db.Integer,
                         db.ForeignKey('users.id', ondelete='CASCADE'),
                         nullable=True)
+    post_id = db.Column(db.Integer,
+                        db.ForeignKey('posts.id', ondelete='CASCADE'),
+                        nullable=False)
     content = db.Column(db.UnicodeText, nullable=False)
+    deleted = db.Column(db.Boolean, default=False, nullable=False)
     comment_created_date = db.Column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
@@ -425,17 +426,20 @@ class PostComment(db.Model):
             ('post_id', self.post_id),
             ('user_id', self.user_id),
             ('content', self.content),
+            ('deleted', self.deleted),
             ('comment_created_date', self.comment_created_date.strftime('%Y-%m-%d %H:%M:%S')),
             ('comment_last_updated_date', self.comment_last_updated_date.strftime('%Y-%m-%d %H:%M:%S')),
             ('floor', self.floor),
             ('likes', len(self.likes)),
         ])
         if self.user:
-            comment_dict['nickname'] = self.user.nickname
-            comment_dict['liked'] = PostCommentLike.query.filter_by(
-                comment_id=self.id,
-                user_id=self.user_id
-            ).exists().scalar()
+            comment_dict['nickname'] = Profile.query.get(self.user_id).nickname
+            comment_dict['liked'] = db.session.execute(
+                select(exists().where(
+                    PostCommentLike.user_id == user_id,
+                    PostCommentLike.comment_id == self.id
+                ))
+            ).scalar()
         return comment_dict
 
 
