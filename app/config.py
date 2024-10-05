@@ -8,4 +8,10 @@ class Config:
     SECURITY_PASSWORD_SALT = 'SparkUp_SECURITY_PASSWORD_SALT'
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 1800,
+        'pool_timeout': 30,
+        'pool_size': 20,
+        'max_overflow': 10,
+    }

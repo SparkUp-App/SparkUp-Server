@@ -171,7 +171,11 @@ class ProfileUpdate(Resource):
             data['diet'] = DietEnum.PREFER_NOT_TO_SAY
 
         # Create or Update the Profile
-        profile = Profile.query.filter_by(id=user_id).first() or Profile(id=user_id)
+        profile = Profile.query.get(user_id)
+        create_profile = profile is None
+        if create_profile:
+            profile = Profile()
+
         profile.phone = data['phone']
         profile.nickname = data['nickname']
         profile.dob = dob_date
@@ -200,17 +204,19 @@ class ProfileUpdate(Resource):
 
         current_app.logger.info(f"Serialized profile: {profile.serialize()}")
 
-        db.session.add(profile)
+        if create_profile:
+            db.session.add(profile)
         db.session.commit()
         current_app.logger.info('Profile for user_id %s created successfully', user_id)
 
         return jsonify_response({'message': f"User {user_id} profile created/updated successfully"}, 201)
 
-    @profile_ns.route('/view/<int:user_id>')
-    class ProfileView(Resource):
-        @profile_ns.response(200, 'Profile retrieved successfully.')
-        @profile_ns.response(404, 'Profile not found')
-        def get(self, user_id):
-            profile = Profile.query.get_or_404(user_id)
-            current_app.logger.info(f"Profile retrieved: {profile.serialize()}")
-            return jsonify_response(profile.serialize(), 200)
+
+@profile_ns.route('/view/<int:user_id>')
+class ProfileView(Resource):
+    @profile_ns.response(200, 'Profile retrieved successfully.')
+    @profile_ns.response(404, 'Profile not found')
+    def get(self, user_id):
+        profile = Profile.query.get_or_404(user_id)
+        current_app.logger.info(f"Profile retrieved: {profile.serialize()}")
+        return jsonify_response(profile.serialize(), 200)

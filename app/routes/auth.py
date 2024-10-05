@@ -1,11 +1,12 @@
 import re
 
-from flask import Blueprint, request, jsonify, current_app
-from flask_restx import Api, Namespace, Resource, fields
+from flask import Blueprint, request, current_app
+from flask_restx import Api, Resource, fields
 from flask_security import hash_password, verify_password, login_user
+from sqlalchemy import select, exists
 
 from app.utils import jsonify_response
-from app.models import user_datastore
+from app.models import user_datastore, Profile, User
 from app.extensions import db
 
 auth_bp = Blueprint('auth_bp', __name__)
@@ -115,11 +116,15 @@ class Login(Resource):
             user = db.session.merge(user)
             login_user(user)
 
+            # Check profile
+            profile_exists = db.session.execute(select(exists().where(Profile.user_id == user.id))).scalar()
+
             current_app.logger.info(f"User login successfully: {user.id}, email: {user.email}")
 
             return jsonify_response({
                 'message': 'User login successfully',
-                'user_id': user.id,
+                'profile_exists': profile_exists,
+                'user_id': user.id
             }, 200)
 
         except Exception as e:
