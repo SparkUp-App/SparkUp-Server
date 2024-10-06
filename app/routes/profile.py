@@ -172,7 +172,7 @@ class ProfileUpdate(Resource):
         profile = Profile.query.get(user_id)
         create_profile = profile is None
         if create_profile:
-            profile = Profile()
+            profile = Profile(id=user_id)
 
         profile.phone = data['phone']
         profile.nickname = data['nickname']
@@ -202,12 +202,16 @@ class ProfileUpdate(Resource):
 
         current_app.logger.info(f"Serialized profile: {profile.serialize()}")
 
-        if create_profile:
-            db.session.add(profile)
-        db.session.commit()
-        current_app.logger.info('Profile for user_id %s created successfully', user_id)
+        try:
+            if create_profile:
+                db.session.add(profile)
+            db.session.commit()
+            current_app.logger.info('Profile for user_id %s created successfully', user_id)
 
-        return jsonify_response({'message': f"User {user_id} profile created/updated successfully"}, 201)
+            return jsonify_response({'message': f"User {user_id} profile created/updated successfully"}, 201)
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify_response({'error': str(e)}, 500)
 
 
 @profile_ns.route('/view/<int:user_id>')
