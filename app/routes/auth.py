@@ -117,7 +117,7 @@ class Login(Resource):
             login_user(user)
 
             # Check profile
-            profile_exists = db.session.execute(select(exists().where(Profile.user_id == user.id))).scalar()
+            profile_exists = db.session.execute(select(exists().where(Profile.id == user.id))).scalar()
 
             current_app.logger.info(f"User login successfully: {user.id}, email: {user.email}")
 
