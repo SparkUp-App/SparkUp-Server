@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from dns.name import empty
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from sqlalchemy import case, exists
@@ -99,7 +100,7 @@ post_list_query_model = post_api.model(
     {
         'user_id': fields.Integer(description='Filter User ID'),
         'sort': fields.Integer(description='Sort, 0: For You, 1: All. Default = 1: All', default=1),
-        'type': fields.String(description='Filter type of the post'),
+        'type': fields.List(fields.String(), description='Filter types of the post'),
         'keyword': fields.String(description='Keyword for search'),
         'page': fields.Integer(description='Page number of the results, defaults to 1', default=1),
         'per_page': fields.Integer(description='Number of posts per page, defaults to 20', default=20),
@@ -121,9 +122,9 @@ class ListPost(Resource):
         # Filter and Sort
         if 'user_id' in data and data['user_id'] is not None:
             post_query = post_query.filter_by(user_id=data['user_id'])
-        if 'type' in data and data['type'] is not None:
-            post_query = post_query.filter_by(type=data['type'])
-        if 'keyword' in data and data['keyword'] is not None:
+        if 'type' in data and data['type'] is not None and data['type']:
+            post_query = post_query.filter(Post.type.in_(data['type']))
+        if 'keyword' in data and data['keyword'] is not None and data['keyword'] != "":
             post_query = post_query.filter(Post.title.ilike(f'%{data["keyword"]}%'))
         if data.get('sort', 1) == 0:
             # Recommendation System
