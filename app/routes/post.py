@@ -1,6 +1,6 @@
 from datetime import datetime
+from select import select
 
-from dns.name import empty
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from sqlalchemy import case, exists
@@ -230,7 +230,7 @@ class LikePost(Resource):
 
             else:
                 # Check User
-                if db.session.execute(exists().where(User.id == user_id)).scalar():
+                if db.session.execute(select(exists().where(User.id == user_id))).scalar():
                     return jsonify_response({'error': 'User not found', }, 404)
 
                 # Check if Post exists
@@ -239,7 +239,7 @@ class LikePost(Resource):
                     return jsonify_response({'error': 'Post not found'}, 404)
 
                 # Check is Like exists
-                if db.session.execute(exists().where(PostLike.user_id == user_id, PostLike.post_id == post_id)).scalar():
+                if db.session.execute(select(exists().where(PostLike.user_id == user_id, PostLike.post_id == post_id))).scalar():
                     return jsonify_response({'error': 'Post already liked', }, 400)
 
                 post.manual_update()
@@ -281,7 +281,7 @@ class BookmarkPost(Resource):
                 db.session.delete(bookmark)
 
             else:
-                if db.session.execute(exists().where(User.id == user_id)).scalar():
+                if db.session.execute(select(exists().where(User.id == user_id))).scalar():
                     return jsonify_response({'error': 'User not found', }, 404)
 
                 post = Post.query.get(post_id)
@@ -294,97 +294,6 @@ class BookmarkPost(Resource):
             db.session.commit()
             return jsonify_response({'retrieved': retrieve}, 200)
 
-        except Exception as e:
-            current_app.logger.error(e)
-            db.session.rollback()
-            return jsonify_response({'error': str(e)}, 500)
-
-
-post_applicant_model = post_api.model(
-    'PostApplicantModel',
-    {
-        'user_id': fields.Integer(required=True, description='User ID'),
-        'post_id': fields.Integer(required=True, description='Post ID'),
-        'content': fields.String(required=True, description='Content'),
-    }
-)
-
-
-@post_ns.route('/create_applicant')
-class CreateApplicant(Resource):
-    @post_ns.expect(post_applicant_model)
-    @post_ns.response(200, 'Success')
-    @post_ns.response(400, 'Bad Request')
-    @post_ns.response(404, 'Post or User not found')
-    def post(self):
-        data = request.get_json()
-
-        required_fields = ['user_id', 'post_id', 'content']
-        for field in required_fields:
-            if field not in data:
-                current_app.logger.error(f"Missing required field: {field}")
-                return jsonify_response({'error': f"Missing required field: {field}"}, 400)
-
-        user_id = data['user_id']
-        post_id = data['post_id']
-        content = data['content']
-
-        # Check if already apply:
-        if db.session.execute(exists().where(PostApplicant.user_id == user_id,
-                                             PostApplicant.post_id == post_id)).scalar():
-            return jsonify_response({'error': 'Already apply this post', }, 400)
-
-        # Check User
-        if db.session.execute(exists().where(User.id == user_id)).scalar():
-            return jsonify_response({'error': 'User not found', }, 404)
-
-        # Check Post
-        post = Post.query.get(post_id)
-        if post is None:
-            return jsonify_response({'error': 'Post not found',}, 404)
-
-        applicant = PostApplicant(user_id=user_id, post_id=post_id, content=content)
-
-        try:
-            post.manual_update()
-            db.session.add(applicant)
-            db.session.commit()
-            return jsonify_response({'message': "Application submitted successfully"}, 200)
-
-        except Exception as e:
-            current_app.logger.error(e)
-            db.session.rollback()
-            return jsonify_response({'error': str(e)}, 500)
-
-
-@post_ns.route('/retrieve_applicant')
-class RetrieveApplicant(Resource):
-    @post_ns.expect(post_and_user_model)
-    @post_ns.response(200, 'Success')
-    @post_ns.response(400, 'Bad Request')
-    @post_ns.response(404, 'Applicant not found')
-    def delete(self):
-        data = request.get_json()
-
-        required_fields = ['user_id', 'post_id']
-        for field in required_fields:
-            if field not in data:
-                current_app.logger.error(f"Missing required field: {field}")
-                return jsonify_response({'error': f"Missing required field: {field}"}, 400)
-
-        user_id = data['user_id']
-        post_id = data['post_id']
-
-        applicant = PostApplicant.query.get((user_id, post_id))
-
-        if not applicant:
-            return jsonify_response({'error': 'Applicant not found',}, 404)
-
-        try:
-            applicant.post.manual_update()
-            db.session.delete(applicant)
-            db.session.commit()
-            return jsonify_response({'message': "Applicant deleted successfully"}, 200)
         except Exception as e:
             current_app.logger.error(e)
             db.session.rollback()

@@ -81,10 +81,17 @@ class User(UserMixin, db.Model):
                                lazy='dynamic',
                                cascade='all, delete-orphan')
 
-    applied_posts = db.relationship('PostApplicant', back_populates='user')
-
     bookmarked_posts = db.relationship(
         'PostBookmark',
+        back_populates='user',
+        lazy='select',
+        cascade='all, delete-orphan',
+    )
+
+    applied_posts = db.relationship('PostApplicant', back_populates='user')
+
+    chat_rooms = db.relationship(
+        'ChatRoomUser',
         back_populates='user',
         lazy='select',
         cascade='all, delete-orphan',
@@ -322,21 +329,25 @@ class Post(db.Model):
                                 lazy=True,
                                 cascade='all, delete-orphan')
 
+    chat_room = db.relationship('ChatRoom',
+                                uselist=False,
+                                back_populates='post')
+
     def serialize(self, user_id, simple=False):
         post_dict = OrderedDict([('id', self.id),
-                            ('nickname', self.user.profile.nickname),
-                            ('type', self.type),
-                            ('title', self.title),
-                            ('content', self.content),
-                            ('event_start_date', self.event_start_date.strftime('%Y-%m-%d %H:%M:%S')),
-                            ('event_end_date', self.event_end_date.strftime('%Y-%m-%d %H:%M:%S')),
-                            ('number_of_people_required', self.number_of_people_required),
-                            ('likes', len(self.likes)),
-                            ('liked', any(like.user_id == user_id for like in self.likes)),
-                            ('bookmarks', len(self.bookmarks)),
-                            ('bookmarked', any(bookmark.user_id == user_id for bookmark in self.bookmarks)),
-                            ('comments', len(self.comments)),
-                            ('applicants', len(self.applicants)),])
+                                 ('nickname', self.user.profile.nickname),
+                                 ('type', self.type),
+                                 ('title', self.title),
+                                 ('content', self.content),
+                                 ('event_start_date', self.event_start_date.strftime('%Y-%m-%d %H:%M:%S')),
+                                 ('event_end_date', self.event_end_date.strftime('%Y-%m-%d %H:%M:%S')),
+                                 ('number_of_people_required', self.number_of_people_required),
+                                 ('likes', len(self.likes)),
+                                 ('liked', any(like.user_id == user_id for like in self.likes)),
+                                 ('bookmarks', len(self.bookmarks)),
+                                 ('bookmarked', any(bookmark.user_id == user_id for bookmark in self.bookmarks)),
+                                 ('comments', len(self.comments)),
+                                 ('applicants', len(self.applicants)), ])
         if not simple:
             post_dict['location'] = self.location,
             post_dict['skills'] = self.skills,
@@ -383,7 +394,8 @@ class PostApplicant(db.Model):
     __tablename__ = 'post_applicants'
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), primary_key=True)
-    content = db.Column(db.UnicodeText, default='', nullable=False)
+    attributes = db.Column(MutableDict.as_mutable(PickleType), default=lambda: {}, nullable=True)
+
     applied_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     review_status = db.Column(db.Integer, default=0, nullable=False)  # 0: still reviewing, 1: rejected, 2: matched
 
@@ -454,3 +466,52 @@ class PostCommentLike(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     user = db.relationship('User', back_populates='liked_comments')
     comment = db.relationship('PostComment', back_populates='likes')
+
+
+class ChatRoom(db.Model):
+    __tablename__ = 'chat_rooms'
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), primary_key=True)
+    post = db.relationship('Post', back_populates='chat_room', lazy='joined')
+    name = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    messages = db.relationship('Message',
+                               back_populates='chat_room',
+                               lazy='dynamic',
+                               cascade='all, delete-orphan')
+    chat_room_users = db.relationship('ChatRoomUser',
+                                      back_populates='chat_room',
+                                      lazy='dynamic',
+                                      cascade='all, delete-orphan')
+
+
+class ChatRoomUser(db.Model):
+    __tablename__ = 'chat_room_users'
+    __table_args__ = (db.UniqueConstraint('post_id', 'user_id', name='_chat_room_user_uc'),)
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
+    joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    user = db.relationship('User', back_populates='chat_rooms')
+
+    chat_room = db.relationship('ChatRoom',
+                                back_populates='user',
+                                lazy='dynamic',
+                                cascade='all, delete-orphan')
+
+
+class Message(db.Model):
+    __tablename__ = 'messages'
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer,
+                        db.ForeignKey('chat_rooms.post_id', ondelete='CASCADE'),
+                        nullable=False)
+    sender_id = db.Column(db.Integer,
+                          db.ForeignKey('users.id', ondelete='CASCADE'),
+                          nullable=False)
+    content = db.Column(db.UnicodeText, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    read_users = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
+
+    chat_room = db.relationship('ChatRoom',
+                                back_populates='messages',
+                                lazy='dynamic',
+                                cascade='all, delete-orphan')
