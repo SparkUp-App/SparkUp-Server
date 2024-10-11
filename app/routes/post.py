@@ -5,7 +5,7 @@ from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from sqlalchemy import case, exists
 
-from app.utils import jsonify_response
+from app.utils import jsonify_response, to_datetime
 from app.extensions import db
 from app.models import Post, PostLike, User, Profile, DictItem, PostBookmark, ChatRoom, ChatRoomUser
 
@@ -26,8 +26,8 @@ post_model = post_api.model(
         'type': fields.String(required=True, description='Type of the post'),
         'title': fields.String(required=True, description='Title'),
         'content': fields.String(required=True, description='Content'),
-        'event_start_date': fields.Date(required=True, description='Event start date'),
-        'event_end_date': fields.Date(required=True, description='Event end date'),
+        'event_start_date': fields.DateTime(required=True, description='Event start date in ISO8601 format. (YYYY-MM-DDTHH:MM:SS+08:00)'),
+        'event_end_date': fields.DateTime(required=True, description='Event end date in ISO8601 format. (YYYY-MM-DDTHH:MM:SS+08:00)'),
         'number_of_people_required': fields.Integer(required=True, description='Number of people'),
         'location': fields.String(required=True, description='Location'),
         'skills': fields.List(fields.String, description='Skills'),
@@ -65,11 +65,15 @@ class CreatePost(Resource):
             return jsonify_response({'error': 'User profile must be completed first'}, 403)
 
         try:
-            event_start_date = datetime.strptime(data['event_start_date'], '%Y-%m-%d').date()
-            event_end_date = datetime.strptime(data['event_end_date'], '%Y-%m-%d').date()
+            event_start_date = to_datetime(data['event_start_date'])
+            event_end_date = to_datetime(data['event_end_date'])
         except ValueError as e:
             current_app.logger.error(e)
-            post_ns.abort(400, f'Invalid date format, use YYYY-MM-DD format')
+            post_ns.abort(400, f'Invalid date format, use yyyy-MM-ddTHH:mm:ss.mmmZ format')
+
+        if event_start_date > event_end_date:
+            current_app.logger.error('Event start date must be before event end date')
+            return jsonify_response({'Event start date must be before event end date'}, 400)
 
         post = Post()
         post.user_id = data['user_id']

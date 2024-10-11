@@ -10,6 +10,7 @@ from sqlalchemy import select, exists, PickleType, Enum as SQLEnum
 from sqlalchemy.ext.mutable import MutableList, MutableDict
 
 from app.extensions import db
+from app.utils import to_iso8601
 
 
 # General
@@ -293,17 +294,17 @@ class Post(db.Model):
                         db.ForeignKey('users.id', ondelete='CASCADE'),
                         nullable=False)
 
-    post_created_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    post_created_date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     post_last_updated_date = db.Column(
-        db.DateTime,
+        db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
     title = db.Column(db.Text, nullable=False)
     content = db.Column(db.UnicodeText, nullable=False)
-    event_start_date = db.Column(db.DateTime, nullable=False)
-    event_end_date = db.Column(db.DateTime, nullable=False)
+    event_start_date = db.Column(db.DateTime(timezone=True), nullable=False)
+    event_end_date = db.Column(db.DateTime(timezone=True), nullable=False)
     number_of_people_required = db.Column(db.Integer, nullable=False)
     location = db.Column(db.Text, nullable=False)
     skills = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
@@ -338,9 +339,8 @@ class Post(db.Model):
                                  ('nickname', self.user.profile.nickname),
                                  ('type', self.type),
                                  ('title', self.title),
-                                 ('content', self.content),
-                                 ('event_start_date', self.event_start_date.strftime('%Y-%m-%d %H:%M:%S')),
-                                 ('event_end_date', self.event_end_date.strftime('%Y-%m-%d %H:%M:%S')),
+                                 ('event_start_date', to_iso8601(self.event_start_date)),
+                                 ('event_end_date', to_iso8601(self.event_end_date)),
                                  ('number_of_people_required', self.number_of_people_required),
                                  ('likes', len(self.likes)),
                                  ('liked', any(like.user_id == user_id for like in self.likes)),
@@ -349,6 +349,7 @@ class Post(db.Model):
                                  ('comments', len(self.comments)),
                                  ('applicants', len(self.applicants)), ])
         if not simple:
+            post_dict['content'] = self.content,
             post_dict['location'] = self.location,
             post_dict['skills'] = self.skills,
             post_dict['personalities'] = self.personalities,
@@ -371,7 +372,7 @@ class PostLike(db.Model):
     post_id = db.Column(db.Integer,
                         db.ForeignKey('posts.id', ondelete='CASCADE'),
                         primary_key=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     user = db.relationship('User', back_populates='liked_posts')
     post = db.relationship('Post', back_populates='likes')
 
@@ -384,7 +385,7 @@ class PostBookmark(db.Model):
     post_id = db.Column(db.Integer,
                         db.ForeignKey('posts.id', ondelete='CASCADE'),
                         primary_key=True)
-    created_at = db.Column(db.DateTime,
+    created_at = db.Column(db.DateTime(timezone=True),
                            default=lambda: datetime.now(timezone.utc))
     user = db.relationship('User', back_populates='bookmarked_posts')
     post = db.relationship('Post', back_populates='bookmarks')
@@ -396,7 +397,7 @@ class PostApplicant(db.Model):
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), primary_key=True)
     attributes = db.Column(MutableDict.as_mutable(PickleType), default=lambda: {}, nullable=True)
 
-    applied_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    applied_time = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     review_status = db.Column(db.Integer, default=0, nullable=False)  # 0: still reviewing, 1: rejected, 2: matched
 
     post = db.relationship('Post', back_populates='applicants')
@@ -415,11 +416,11 @@ class PostComment(db.Model):
     content = db.Column(db.UnicodeText, nullable=False)
     deleted = db.Column(db.Boolean, default=False, nullable=False)
     comment_created_date = db.Column(
-        db.DateTime,
+        db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False)
     comment_last_updated_date = db.Column(
-        db.DateTime,
+        db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
@@ -463,7 +464,7 @@ class PostCommentLike(db.Model):
     comment_id = db.Column(db.Integer,
                            db.ForeignKey('post_comments.id', ondelete='CASCADE'),
                            primary_key=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     user = db.relationship('User', back_populates='liked_comments')
     comment = db.relationship('PostComment', back_populates='likes')
 
@@ -473,7 +474,7 @@ class ChatRoom(db.Model):
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), primary_key=True)
     post = db.relationship('Post', back_populates='chat_room', lazy='joined')
     name = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     messages = db.relationship('Message',
                                back_populates='room',
                                lazy='dynamic',
@@ -489,7 +490,7 @@ class ChatRoomUser(db.Model):
     __table_args__ = (db.UniqueConstraint('post_id', 'user_id', name='_chat_room_user_uc'),)
     post_id = db.Column(db.Integer, db.ForeignKey('chat_rooms.post_id', ondelete='CASCADE'), primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
-    joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    joined_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     user = db.relationship('User', back_populates='chat_rooms')
     room = db.relationship('ChatRoom', back_populates='users')
 
@@ -504,7 +505,7 @@ class Message(db.Model):
                           db.ForeignKey('users.id', ondelete='CASCADE'),
                           nullable=False)
     content = db.Column(db.UnicodeText, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     read_users = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
 
     room = db.relationship('ChatRoom', back_populates='messages')
