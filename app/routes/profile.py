@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from flask_restx import Api, Namespace, Resource, fields
 
-from app.utils import jsonify_response
+from app.utils import jsonify_response, to_datetime
 from app.extensions import db
 from app.models import (EducationLevelEnum, MBTIEnum, ConstellationEnum, BloodTypeEnum,
                         ReligionEnum, SexualityEnum, EthnicityEnum, DietEnum, User, Profile)
@@ -24,7 +24,7 @@ profile_model = profile_ns.model(
     {
         'phone': fields.String(required=True, description='Phone number'),
         'nickname': fields.String(required=True, description='Nickname'),
-        'dob': fields.Date(required=True, description='Date of birth in ISO format'),
+        'dob': fields.DateTime(required=True, description='Date of birth in ISO8601 format. (yyyy-MM-ddTHH:mm:ss.mmmZ)'),
         'gender': fields.Integer(
             required=True,
             description='Gender (0: Male, 1: Female, 2: Non-Binary, 3: Prefer not to say)'
@@ -129,7 +129,7 @@ class ProfileUpdate(Resource):
 
         # Check dob
         try:
-            dob_date = datetime.strptime(data['dob'], '%Y-%m-%d').date()
+            dob_date = to_datetime(data['dob'])
         except ValueError:
             current_app.logger.error(f"Invalid date for dob: {data['dob']}")
             profile_ns.abort(400, f'Invalid date for dob: {data["dob"]}, use YYY-MM-DD format')

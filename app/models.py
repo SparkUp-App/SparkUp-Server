@@ -228,7 +228,7 @@ class Profile(db.Model):
                    primary_key=True)
     phone = db.Column(db.String(20), nullable=False)
     nickname = db.Column(db.String(100), nullable=False)
-    dob = db.Column(db.Date, nullable=False)
+    dob = db.Column(db.DateTime, nullable=False)
     gender = db.Column(db.Integer, nullable=False)
     bio = db.Column(db.Text)
     current_location = db.Column(db.Text)
@@ -259,7 +259,7 @@ class Profile(db.Model):
             ('id', self.id),
             ('phone', self.phone),
             ('nickname', self.nickname),
-            ('dob', self.dob.isoformat() if self.dob else None),  # Convert date to ISO format
+            ('dob', to_iso8601(self.dob) if self.dob else None),  # Convert date to ISO format
             ('gender', self.gender),
             ('bio', self.bio),
             ('current_location', self.current_location),

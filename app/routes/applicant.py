@@ -1,11 +1,8 @@
-from datetime import datetime
-
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from sqlalchemy import case, exists, select
-from sqlalchemy.sql.functions import user
 
-from app.utils import jsonify_response
+from app.utils import jsonify_response, to_iso8601
 from app.extensions import db
 from app.models import Post, User, DictItem, PostApplicant, Profile
 
@@ -19,15 +16,6 @@ applicant_api = Api(
 )
 applicant_ns = applicant_api.namespace('', description='Operations related to applicants')
 
-create_applicant_model = applicant_api.model(
-    'CreateApplicantModel',
-    {
-        'user_id': fields.Integer(required=True, description='User ID'),
-        'post_id': fields.Integer(required=True, description='Post ID'),
-        'attributes': DictItem("Dictionary(String : Any)"),
-    }
-)
-
 
 @applicant_ns.route('/list/<int:post_id>')
 class ListApplicants(Resource):
@@ -36,7 +24,7 @@ class ListApplicants(Resource):
     @applicant_ns.response(404, 'Post not found')
     def get(self, post_id):
         if not db.session.execute(select(exists().where(Post.id == post_id))).scalar():
-            return jsonify_response({'error': 'Post not found',}, 404)
+            return jsonify_response({'error': 'Post not found'}, 404)
 
         applicants = PostApplicant.query.filter_by(post_id=post_id, review_status=0).all()
         applicants_info = []
@@ -45,11 +33,21 @@ class ListApplicants(Resource):
             applicants_info.append({
                 'user_id': applicant.user_id,
                 'nickname': profile.nickname if profile is not None else 'Anonymous',
-                'applied_time': applicant.applied_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'applied_time': to_iso8601(applicant.applied_time),
                 'attributes': applicant.attributes
             })
 
         return jsonify_response({'applicants': applicants_info}, 200)
+
+
+create_applicant_model = applicant_api.model(
+    'CreateApplicantModel',
+    {
+        'user_id': fields.Integer(required=True, description='User ID'),
+        'post_id': fields.Integer(required=True, description='Post ID'),
+        'attributes': DictItem("Dictionary(String : Any)"),
+    }
+)
 
 
 @applicant_ns.route('/create')
