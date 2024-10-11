@@ -475,13 +475,13 @@ class ChatRoom(db.Model):
     name = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     messages = db.relationship('Message',
-                               back_populates='chat_room',
+                               back_populates='room',
                                lazy='dynamic',
                                cascade='all, delete-orphan')
-    chat_room_users = db.relationship('ChatRoomUser',
-                                      back_populates='chat_room',
-                                      lazy='dynamic',
-                                      cascade='all, delete-orphan')
+    users = db.relationship('ChatRoomUser',
+                            back_populates='room',
+                            lazy='dynamic',
+                            cascade='all, delete-orphan')
 
 
 class ChatRoomUser(db.Model):
@@ -491,9 +491,7 @@ class ChatRoomUser(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
     joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     user = db.relationship('User', back_populates='chat_rooms')
-
-    chat_room = db.relationship('ChatRoom',
-                                back_populates='chat_room_users')
+    room = db.relationship('ChatRoom', back_populates='users')
 
 
 class Message(db.Model):
@@ -509,5 +507,4 @@ class Message(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     read_users = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
 
-    chat_room = db.relationship('ChatRoom',
-                                back_populates='messages')
+    room = db.relationship('ChatRoom', back_populates='messages')

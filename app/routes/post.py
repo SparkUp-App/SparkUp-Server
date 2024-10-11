@@ -7,7 +7,7 @@ from sqlalchemy import case, exists
 
 from app.utils import jsonify_response
 from app.extensions import db
-from app.models import Post, PostLike, User, Profile, DictItem, PostBookmark, PostApplicant
+from app.models import Post, PostLike, User, Profile, DictItem, PostBookmark, ChatRoom, ChatRoomUser
 
 post_bp = Blueprint('post_bp', __name__)
 post_api = Api(
@@ -86,11 +86,19 @@ class CreatePost(Resource):
         post.attributes = data.get('attributes', {})
 
         db.session.add(post)
+        db.session.flush()
+
+        chat_room = ChatRoom(post_id=post.id, name=data['title'])
+        db.session.add(chat_room)
+
+        chat_room_user = ChatRoomUser(post_id=post.id, user_id=data['user_id'])
+        db.session.add(chat_room_user)
+
         db.session.commit()
 
         return jsonify_response({
             'post_id': post.id,
-            'message': f"Post {post.id} created successful"},
+            'message': f"Post and ChatRoom: {post.id} created successful"},
             201
         )
 
