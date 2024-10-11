@@ -487,15 +487,13 @@ class ChatRoom(db.Model):
 class ChatRoomUser(db.Model):
     __tablename__ = 'chat_room_users'
     __table_args__ = (db.UniqueConstraint('post_id', 'user_id', name='_chat_room_user_uc'),)
-    post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('chat_rooms.post_id', ondelete='CASCADE'), primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
     joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     user = db.relationship('User', back_populates='chat_rooms')
 
     chat_room = db.relationship('ChatRoom',
-                                back_populates='user',
-                                lazy='dynamic',
-                                cascade='all, delete-orphan')
+                                back_populates='chat_room_users')
 
 
 class Message(db.Model):
@@ -512,6 +510,4 @@ class Message(db.Model):
     read_users = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
 
     chat_room = db.relationship('ChatRoom',
-                                back_populates='messages',
-                                lazy='dynamic',
-                                cascade='all, delete-orphan')
+                                back_populates='messages')
