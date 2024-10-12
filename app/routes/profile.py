@@ -1,7 +1,5 @@
-from datetime import datetime
-
-from flask import Blueprint, request, jsonify, current_app
-from flask_restx import Api, Namespace, Resource, fields
+from flask import Blueprint, request, current_app
+from flask_restx import Api, Resource, fields
 
 from app.utils import jsonify_response, to_datetime
 from app.extensions import db

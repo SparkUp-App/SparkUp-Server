@@ -1,13 +1,13 @@
-from datetime import datetime
+from collections import OrderedDict
 from select import select
 
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from sqlalchemy import case, exists
 
-from app.utils import jsonify_response, to_datetime
+from app.utils import jsonify_response, to_datetime, to_iso8601
 from app.extensions import db
-from app.models import Post, PostLike, User, Profile, DictItem, PostBookmark, ChatRoom, ChatRoomUser
+from app.models import Post, PostLike, PostApplicant, User, Profile, DictItem, PostBookmark, ChatRoom, ChatRoomUser
 
 post_bp = Blueprint('post_bp', __name__)
 post_api = Api(
@@ -69,7 +69,7 @@ class CreatePost(Resource):
             event_end_date = to_datetime(data['event_end_date'])
         except ValueError as e:
             current_app.logger.error(e)
-            post_ns.abort(400, f'Invalid date format, use yyyy-MM-ddTHH:mm:ss.mmmZ format')
+            return jsonify_response({'error': f"Invalid date format: {e}, use yyyy-MM-ddTHH:mm:ss.mmmZ format"}, 400)
 
         if event_start_date > event_end_date:
             current_app.logger.error('Event start date must be before event end date')
@@ -161,7 +161,22 @@ class ListPost(Resource):
         if 'per_page' not in data or data['per_page'] is None:
             data['per_page'] = 20
         pagination = post_query.paginate(page=data['page'], per_page=data['per_page'], error_out=False)
-        posts = [post.serialize(user_id=user_id, simple=True) for post in pagination.items]
+        posts = [
+            OrderedDict([('id', post.id),
+                         ('nickname', post.user.profile.nickname),
+                         ('type', post.type),
+                         ('title', post.title),
+                         ('event_start_date', to_iso8601(post.event_start_date)),
+                         ('event_end_date', to_iso8601(post.event_end_date)),
+                         ('number_of_people_required', post.number_of_people_required),
+                         ('likes', len(post.likes)),
+                         ('liked', any(like.user_id == user_id for like in post.likes)),
+                         ('bookmarks', len(post.bookmarks)),
+                         ('bookmarked', any(bookmark.user_id == user_id for bookmark in post.bookmarks)),
+                         ('comments', len(post.comments)),
+                         ('applicants', len(post.applicants))])
+            for post in pagination.items
+        ]
 
         return jsonify_response({
             'posts': posts,
@@ -200,8 +215,30 @@ class ViewPost(Resource):
 
         current_app.logger.info(f"Viewing post: {post_id} by user: {user_id}")
         post = Post.query.get(post_id)
+        post_dict = OrderedDict([('id', post.id),
+                                 ('nickname', post.user.profile.nickname),
+                                 ('type', post.type),
+                                 ('title', post.title),
+                                 ('content', post.content),
+                                 ('event_start_date', to_iso8601(post.event_start_date)),
+                                 ('event_end_date', to_iso8601(post.event_end_date)),
+                                 ('number_of_people_required', post.number_of_people_required),
+                                 ('location', post.location),
+                                 ('skills', post.skills),
+                                 ('personalities', post.personalities),
+                                 ('languages', post.languages),
+                                 ('attributes', post.attributes),
+                                 ('likes', len(post.likes)),
+                                 ('liked', any(like.user_id == user_id for like in post.likes)),
+                                 ('bookmarks', len(post.bookmarks)),
+                                 ('bookmarked', any(bookmark.user_id == user_id for bookmark in post.bookmarks)),
+                                 ('comments', len(post.comments)),
+                                 ('applicants', len(post.applicants))])
+        application = PostApplicant.query.get((user_id, post.id))
+        if application:
+            post_dict['application_status'] = application.review_status
 
-        return jsonify_response(post.serialize(user_id=user_id, simple=False), 200)
+        return jsonify_response(post_dict, 200)
 
 
 post_and_user_and_retrieve_model = post_api.model(

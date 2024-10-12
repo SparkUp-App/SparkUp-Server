@@ -334,32 +334,6 @@ class Post(db.Model):
                                 uselist=False,
                                 back_populates='post')
 
-    def serialize(self, user_id, simple=False):
-        post_dict = OrderedDict([('id', self.id),
-                                 ('nickname', self.user.profile.nickname),
-                                 ('type', self.type),
-                                 ('title', self.title),
-                                 ('event_start_date', to_iso8601(self.event_start_date)),
-                                 ('event_end_date', to_iso8601(self.event_end_date)),
-                                 ('number_of_people_required', self.number_of_people_required),
-                                 ('likes', len(self.likes)),
-                                 ('liked', any(like.user_id == user_id for like in self.likes)),
-                                 ('bookmarks', len(self.bookmarks)),
-                                 ('bookmarked', any(bookmark.user_id == user_id for bookmark in self.bookmarks)),
-                                 ('comments', len(self.comments)),
-                                 ('applicants', len(self.applicants)), ])
-        if not simple:
-            post_dict['content'] = self.content,
-            post_dict['location'] = self.location,
-            post_dict['skills'] = self.skills,
-            post_dict['personalities'] = self.personalities,
-            post_dict['languages'] = self.languages,
-            post_dict['attributes'] = self.attributes
-        application = PostApplicant.query.get((user_id, self.id))
-        if application:
-            post_dict['application_status'] = application.review_status
-        return post_dict
-
     def manual_update(self):
         self.post_last_updated_date = datetime.now(timezone.utc)
 

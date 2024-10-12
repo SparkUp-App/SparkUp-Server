@@ -1,10 +1,11 @@
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from sqlalchemy import case, exists, select
+from sqlalchemy.orm import joinedload
 
 from app.utils import jsonify_response, to_iso8601
 from app.extensions import db
-from app.models import Post, User, DictItem, PostApplicant, Profile
+from app.models import Post, User, DictItem, PostApplicant, Profile, ChatRoomUser
 
 applicant_bp = Blueprint('applicant_bp', __name__)
 applicant_api = Api(
@@ -82,6 +83,9 @@ class CreateApplicant(Resource):
         if post is None:
             return jsonify_response({'error': 'Post not found',}, 404)
 
+        if post.user_id == user_id:
+            return jsonify_response({'error': "Can't applied to it's own post. "}, 400)
+
         applicant = PostApplicant(user_id=user_id, post_id=post_id)
         if 'attributes' in data and data['attributes'] is not None and data['attributes'] != {}:
             applicant.attributes = data['attributes']
@@ -135,6 +139,64 @@ class RetrieveApplicant(Resource):
             db.session.delete(applicant)
             db.session.commit()
             return jsonify_response({'message': "Applicant deleted successfully"}, 200)
+        except Exception as e:
+            current_app.logger.error(e)
+            db.session.rollback()
+            return jsonify_response({'error': str(e)}, 500)
+
+
+approve_model = applicant_ns.model(
+    'ApproveModel',
+    {
+        'user_id': fields.Integer(required=True, description='User ID'),
+        'post_id': fields.Integer(required=True, description='Post ID'),
+        'approve': fields.Boolean(required=True, description='True: Approve, False: Reject')
+    }
+)
+
+
+@applicant_ns.route('/review')
+class ReviewApplicant(Resource):
+    @applicant_ns.expect(approve_model)
+    @applicant_ns.response(200, 'Success')
+    @applicant_ns.response(400, 'Bad Request')
+    @applicant_ns.response(404, 'Applicant not found')
+    def post(self):
+        data = request.get_json()
+        required_fields = ['user_id', 'post_id', 'approve']
+        for field in required_fields:
+            if field not in data or data[field] is None:
+                current_app.logger.error(f"Missing required field: {field}")
+                return jsonify_response({'error': f"Missing required field: {field}"}, 400)
+
+        applicant = PostApplicant.query \
+            .options(joinedload(PostApplicant.post)) \
+            .filter_by(user_id=data['user_id'], post_id=data['post_id']) \
+            .first()
+        if not applicant:
+            current_app.logger.error(f"Applicant not found: {data['post_id']}")
+            return jsonify_response({'error': 'Applicant not found'}, 404)
+
+        if applicant.review_status != 0:
+            current_app.logger.error(f"Applicant already reviewed: {applicant.review_status}")
+            return jsonify_response({'error': f'Applicant already reviewed: {applicant.review_status}'}, 400)
+
+        if data['approve']:
+            if applicant.post.number_of_people_required == 0:
+                applicant.review_status = 1
+                current_app.logger.error('No people required')
+                return jsonify_response({'error': 'No people required'}, 400)
+
+            applicant.post.number_of_people_required -= 1
+            applicant.post.manual_update()
+            applicant.review_status = 2
+            char_room_user = ChatRoomUser(post_id=data['post_id'], user_id=data['user_id'])
+            db.session.add(char_room_user)
+        else:
+            applicant.review_status = 1
+        try:
+            db.session.commit()
+            return jsonify_response({'message': "Applicant review successfully"}, 200)
         except Exception as e:
             current_app.logger.error(e)
             db.session.rollback()

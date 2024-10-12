@@ -1,7 +1,6 @@
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from sqlalchemy import exists, select
-from sqlalchemy.orm import joinedload
 
 from app.utils import jsonify_response
 from app.extensions import db
@@ -26,6 +25,7 @@ list_comment_model = comment_api.model(
         'per_page': fields.Integer(description='Number of comments per page', default=20),
     }
 )
+
 
 @comment_ns.route('/list')
 class ListComment(Resource):
