@@ -1,9 +1,8 @@
 from collections import OrderedDict
-from select import select
 
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
-from sqlalchemy import case, exists
+from sqlalchemy import case, exists, select
 
 from app.utils import jsonify_response, to_datetime, to_iso8601
 from app.extensions import db
@@ -279,7 +278,7 @@ class LikePost(Resource):
 
             else:
                 # Check User
-                if db.session.execute(select(exists().where(User.id == user_id))).scalar():
+                if not db.session.scalar(select(exists().where(User.id == user_id))):
                     return jsonify_response({'error': 'User not found', }, 404)
 
                 # Check if Post exists
@@ -288,7 +287,7 @@ class LikePost(Resource):
                     return jsonify_response({'error': 'Post not found'}, 404)
 
                 # Check is Like exists
-                if db.session.execute(select(exists().where(PostLike.user_id == user_id, PostLike.post_id == post_id))).scalar():
+                if db.session.scalar(select(exists().where(PostLike.user_id == user_id, PostLike.post_id == post_id))):
                     return jsonify_response({'error': 'Post already liked', }, 400)
 
                 post.manual_update()
