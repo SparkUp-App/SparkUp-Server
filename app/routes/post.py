@@ -329,7 +329,7 @@ class BookmarkPost(Resource):
                 db.session.delete(bookmark)
 
             else:
-                if db.session.execute(select(exists().where(User.id == user_id))).scalar():
+                if db.session.scalar(select(exists().where(User.id == user_id))):
                     return jsonify_response({'error': 'User not found', }, 404)
 
                 post = Post.query.get(post_id)

@@ -42,7 +42,7 @@ class UserBookmarks(Resource):
         per_page = data.get('per_page', 20)
 
         try:
-            if not db.session.execute(select(exists().where(User.id == user_id))).scalar():
+            if not db.session.scalar(select(exists().where(User.id == user_id))):
                 current_app.logger.error(f'User not found: {user_id}')
                 return jsonify_response({'error': 'User not found'}, 404)
 
@@ -92,7 +92,7 @@ class UserApplied(Resource):
         per_page = data.get('per_page', 20)
 
         try:
-            if not db.session.execute(select(exists().where(User.id == user_id))).scalar():
+            if not db.session.scalar(select(exists().where(User.id == user_id))):
                 current_app.logger.error(f'User not found: {user_id}')
                 return jsonify_response({'error': 'User not found'}, 404)
 

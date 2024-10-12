@@ -47,7 +47,7 @@ class ListComment(Resource):
         per_page = data['per_page'] if 'per_page' in data else 20
 
         try:
-            if not db.session.execute(select(exists().where(Post.id == post_id))).scalar():
+            if not db.session.scalar(select(exists().where(Post.id == post_id))):
                 return jsonify_response({'error': 'Post not found'}, 404)
 
             comments = PostComment.query.filter_by(post_id=post_id).paginate(page=page,
@@ -91,7 +91,7 @@ class CreateComment(Resource):
         content = data['content']
 
         try:
-            if not db.session.execute(select(exists().where(User.id == user_id))).scalar():
+            if not db.session.scalar(select(exists().where(User.id == user_id))):
                 return jsonify_response({'error': 'User does not exist'}, 404)
 
             post = Post.query.options(db.joinedload(Post.comments)).get(post_id)

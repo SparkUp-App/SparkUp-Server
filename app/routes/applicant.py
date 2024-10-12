@@ -24,7 +24,7 @@ class ListApplicants(Resource):
     @applicant_ns.response(400, 'Bad Request')
     @applicant_ns.response(404, 'Post not found')
     def get(self, post_id):
-        if not db.session.execute(select(exists().where(Post.id == post_id))).scalar():
+        if not db.session.scalar(select(exists().where(Post.id == post_id))):
             return jsonify_response({'error': 'Post not found'}, 404)
 
         applicants = PostApplicant.query.filter_by(post_id=post_id, review_status=0).all()
@@ -70,12 +70,12 @@ class CreateApplicant(Resource):
         post_id = data['post_id']
 
         # Check if already apply:
-        if db.session.execute(select(exists().where(PostApplicant.user_id == user_id,
-                                             PostApplicant.post_id == post_id))).scalar():
+        if db.session.scalar(select(exists().where(PostApplicant.user_id == user_id,
+                                             PostApplicant.post_id == post_id))):
             return jsonify_response({'error': 'Already apply this post', }, 400)
 
         # Check User
-        if not db.session.execute(select(exists().where(User.id == user_id))).scalar():
+        if not db.session.scalar(select(exists().where(User.id == user_id))):
             return jsonify_response({'error': 'User not found', }, 404)
 
         # Check Post
