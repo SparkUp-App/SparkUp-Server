@@ -327,6 +327,8 @@ class BookmarkPost(Resource):
                 if not bookmark:
                     return jsonify_response({'error': 'Bookmark not found'}, 404)
                 db.session.delete(bookmark)
+            elif db.session.scalar(select(exists().where(PostBookmark.user_id == user_id, PostBookmark.post_id == post_id))):
+                return jsonify_response({'error': 'Already bookmarked'}, 400)
 
             else:
                 if not db.session.scalar(select(exists().where(User.id == user_id))):

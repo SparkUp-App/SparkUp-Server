@@ -128,7 +128,7 @@ class DeleteComment(Resource):
     @comment_ns.response(200, 'Comment successfully deleted.')
     @comment_ns.response(400, 'Bad request.')
     @comment_ns.response(404, 'Comment does not exist.')
-    def post(self, comment_id):
+    def post(self):
         data = request.get_json()
 
         require_fields = ['user_id', 'comment_id']
