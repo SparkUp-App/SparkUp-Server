@@ -53,10 +53,12 @@ class ListComment(Resource):
             comments = PostComment.query \
                 .filter_by(post_id=post_id) \
                 .order_by(PostComment.floor.asc()) \
-                .paginate(page=page, per_page=per_page, error_out=False) \
-                .items
+                .paginate(page=page, per_page=per_page, error_out=False)
             return jsonify_response({
-                'comments': [comment.serialize(user_id=user_id) for comment in comments],
+                'comments': [comment.serialize(user_id=user_id) for comment in comments.items],
+                'page': comments.page,
+                'pages': comments.pages,
+                'per_page': comments.per_page
             }, 200)
         except Exception as e:
             current_app.logger.error(e)
