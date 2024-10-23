@@ -50,9 +50,11 @@ class ListComment(Resource):
             if not db.session.scalar(select(exists().where(Post.id == post_id))):
                 return jsonify_response({'error': 'Post not found'}, 404)
 
-            comments = PostComment.query.filter_by(post_id=post_id).paginate(page=page,
-                                                                             per_page=per_page,
-                                                                             error_out=False).items
+            comments = PostComment.query \
+                .filter_by(post_id=post_id) \
+                .order_by(PostComment.floor.asc()) \
+                .paginate(page=page, per_page=per_page, error_out=False) \
+                .items
             return jsonify_response({
                 'comments': [comment.serialize(user_id=user_id) for comment in comments],
             }, 200)
