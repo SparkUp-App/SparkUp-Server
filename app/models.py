@@ -94,9 +94,22 @@ class User(UserMixin, db.Model):
     chat_rooms = db.relationship(
         'ChatRoomUser',
         back_populates='user',
-        lazy='select',
+        lazy='dynamic',
         cascade='all, delete-orphan',
     )
+
+    rating = db.Column(db.Float, default=0.0)
+    ratings = db.relationship('Reference',
+                              foreign_keys='Reference.to_user_id',
+                              backref='to_user',
+                              lazy='dynamic',
+                              cascade="all, delete-orphan")
+
+    given_ratings = db.relationship('Reference',
+                                    foreign_keys='Reference.from_user_id',
+                                    backref='from_user',
+                                    lazy='dynamic',
+                                    cascade="all, delete-orphan")
 
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
@@ -334,6 +347,10 @@ class Post(db.Model):
                                 uselist=False,
                                 back_populates='post')
 
+    references = db.relationship('Reference',
+                                 back_populates='post',
+                                 cascade='all, delete-orphan')
+
     def manual_update(self):
         self.post_last_updated_date = datetime.now(timezone.utc)
 
@@ -483,3 +500,14 @@ class Message(db.Model):
     read_users = db.Column(MutableList.as_mutable(PickleType), default=lambda: [])
 
     room = db.relationship('ChatRoom', back_populates='messages')
+
+
+class Reference(db.Model):
+    __tablename__ = 'references'
+    from_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
+    to_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id', ondelete='CASCADE'), primary_key=True)
+    rating = db.Column(db.Integer, nullable=False)
+    content = db.Column(db.UnicodeText, nullable=False)
+
+    post = db.relationship('Post', back_populates='references')

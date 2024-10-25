@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload
 
 from app.utils import jsonify_response, to_datetime, to_iso8601
 from app.extensions import db
-from app.models import PostBookmark, PostApplicant, User, Post
+from app.models import PostBookmark, PostApplicant, User, Post, Profile
 
 user_bp = Blueprint('user_bp', __name__)
 user_api = Api(
@@ -28,6 +28,27 @@ DynamicLoadModel = user_ns.model(
         'per_page': fields.Integer(description='Number of posts per page, defaults to 20', default=20),
     }
 )
+
+
+@user_ns.route('/view/<int:user_id>')
+class ViewUser(Resource):
+    @user_ns.response(200, 'Success')
+    @user_ns.response(400, 'Bad Request')
+    @user_ns.response(404, 'User of Post Not Found')
+    def get(self, user_id):
+        user = User.query \
+            .options(joinedload(User.profile)) \
+            .filter_by(id=user_id) \
+            .first()
+        if user is None or user.profile is None:
+            current_app.logger.error(f'User or Profile not found: {user_id}')
+            return jsonify_response({'error': 'User or Profile not found'}, 404)
+
+        dict = OrderedDict([('participated', user.chat_rooms.count()),
+                            ('rating', user.rating if user.rating else 0.0),
+                            ('profile', user.profile.serialize())])
+
+        return jsonify_response(dict, 200)
 
 
 @user_ns.route('/bookmarks/<int:user_id>')
