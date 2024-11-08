@@ -43,7 +43,7 @@ class ViewUser(Resource):
             current_app.logger.error(f'User or Profile not found: {user_id}')
             return jsonify_response({'error': 'User or Profile not found'}, 404)
 
-        dict = OrderedDict([('participated', user.chat_rooms.count()),
+        dict = OrderedDict([('participated', user.chat_rooms.count() - user.posts.count()),
                             ('rating', user.rating if user.rating else 0.0),
                             ('profile', user.profile.serialize())])
 
@@ -171,6 +171,7 @@ class UserParticipation(Resource):
             .filter(ChatRoomUser.user_id == user_id) \
             .options(joinedload(ChatRoom.post)) \
             .join(Post) \
+            .filter(Post.user_id != user_id) \
             .order_by(Post.event_end_date.desc()) \
             .paginate(page=page, per_page=per_page, error_out=False)
 

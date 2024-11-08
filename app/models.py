@@ -62,7 +62,7 @@ class User(UserMixin, db.Model):
 
     posts = db.relationship('Post',
                             back_populates='user',
-                            lazy='select',
+                            lazy='dynamic',
                             cascade='all, delete-orphan')
 
     liked_comments = db.relationship(

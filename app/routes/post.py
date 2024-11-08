@@ -248,7 +248,6 @@ class ListPost(Resource):
         pagination = post_query.paginate(page=data['page'], per_page=data['per_page'], error_out=False)
         posts = [
             OrderedDict([('id', post.id),
-                         ('nickname', post.user.profile.nickname),
                          ('type', post.type),
                          ('title', post.title),
                          ('event_start_date', to_iso8601(post.event_start_date)),
