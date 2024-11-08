@@ -6,9 +6,9 @@ from flask_restx import Api, Resource, fields
 from sqlalchemy import exists, select
 from sqlalchemy.orm import joinedload
 
-from app.utils import jsonify_response, to_datetime, to_iso8601
+from app.utils import jsonify_response, to_iso8601
 from app.extensions import db
-from app.models import PostBookmark, PostApplicant, User, Post, Profile
+from app.models import PostBookmark, PostApplicant, User, Post, ChatRoom, ChatRoomUser, PostLike, PostComment
 
 user_bp = Blueprint('user_bp', __name__)
 user_api = Api(
@@ -19,7 +19,6 @@ user_api = Api(
     doc='/docs',
 )
 user_ns = user_api.namespace('', description='User information')
-
 
 DynamicLoadModel = user_ns.model(
     'DynamicLoadModel',
@@ -152,3 +151,50 @@ class UserApplied(Resource):
         except Exception as e:
             current_app.logger.error(e)
             return jsonify_response({'error': str(e)}, 500)
+
+
+@user_ns.route('/participation/<int:user_id>')
+class UserParticipation(Resource):
+    @user_ns.expect(DynamicLoadModel)
+    @user_ns.response(200, 'Success')
+    @user_ns.response(400, 'Bad Request')
+    @user_ns.response(404, 'User Not Found')
+    def post(self, user_id):
+        data = request.get_json()
+        page = data.get('page', 1)
+        per_page = data.get('per_page', 20)
+
+        # Get user's chat rooms through a proper join
+        pagination = ChatRoom \
+            .query \
+            .join(ChatRoomUser) \
+            .filter(ChatRoomUser.user_id == user_id) \
+            .options(joinedload(ChatRoom.post)) \
+            .join(Post) \
+            .order_by(Post.event_end_date.desc()) \
+            .paginate(page=page, per_page=per_page, error_out=False)
+
+        posts = [
+            OrderedDict([
+                ('id', chat_room.post_id),
+                ('type', chat_room.post.type),
+                ('title', chat_room.post.title),
+                ('event_start_date', to_iso8601(chat_room.post.event_start_date)),
+                ('event_end_date', to_iso8601(chat_room.post.event_end_date)),
+                ('number_of_people_required', chat_room.post.number_of_people_required),
+                ('likes', len(chat_room.post.likes)),
+                ('liked', any(like.user_id == user_id for like in chat_room.post.likes)),
+                ('bookmarks', len(chat_room.post.bookmarks)),
+                ('bookmarked', any(bookmark.user_id == user_id for bookmark in chat_room.post.bookmarks)),
+                ('comments', len(chat_room.post.comments)),
+                ('applicants', len(chat_room.post.applicants))
+            ])
+            for chat_room in pagination.items
+        ]
+
+        return jsonify_response({
+            'posts': posts,
+            'page': pagination.page,
+            'pages': pagination.pages,
+            'per_page': pagination.per_page
+        }, 200)
