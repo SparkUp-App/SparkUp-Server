@@ -33,7 +33,7 @@ DynamicLoadModel = user_ns.model(
 class ViewUser(Resource):
     @user_ns.response(200, 'Success')
     @user_ns.response(400, 'Bad Request')
-    @user_ns.response(404, 'User of Post Not Found')
+    @user_ns.response(404, 'User or Post Not Found')
     def get(self, user_id):
         user = User.query \
             .options(joinedload(User.profile)) \
