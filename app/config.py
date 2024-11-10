@@ -6,6 +6,7 @@ class Config:
     SECURITY_JOIN_USER_ROLES = True
     SECURITY_PASSWORD_HASH = 'bcrypt'
     SECURITY_PASSWORD_SALT = 'SparkUp_SECURITY_PASSWORD_SALT'
+    FLASK_CORS_ORIGINS = os.environ.get('FLASK_CORS_ORIGINS', "*")
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
@@ -15,4 +16,3 @@ class Config:
         'pool_size': 20,
         'max_overflow': 10,
     }
-#_CONNECTION_POOL

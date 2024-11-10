@@ -1,5 +1,5 @@
 import logging
-import socketio
+import eventlet
 from sqlalchemy import text
 from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
@@ -22,11 +22,13 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
-    socketio.init_app(app)
     security.init_app(app, user_datastore)
+    socketio.init_app(app, cors_allowed_origins='*')
 
+    # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(profile_bp, url_prefix='/profile')
     app.register_blueprint(post_bp, url_prefix='/post')
@@ -34,6 +36,7 @@ def create_app():
     app.register_blueprint(applicant_bp, url_prefix='/applicant')
     app.register_blueprint(user_bp, url_prefix='/user')
     app.register_blueprint(reference_bp, url_prefix='/reference')
+    app.register_blueprint(chat_bp, url_prefix='/chat')
 
     @app.errorhandler(HTTPException)
     def http_exception_handler(error):

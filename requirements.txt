@@ -7,7 +7,9 @@ blinker==1.8.2
 click==8.1.7
 dnspython==2.6.1
 email_validator==2.2.0
+eventlet==0.37.0
 Flask==3.0.3
+Flask-Cors==5.0.0
 Flask-Login==0.6.3
 Flask-Migrate==4.0.7
 Flask-Principal==0.4.0

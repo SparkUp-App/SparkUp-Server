@@ -5,6 +5,7 @@ from .comment import comment_bp
 from .applicant import applicant_bp
 from .user import user_bp
 from .reference import reference_bp
+from .chat import chat_bp
 
 __all__ = [
     'auth_bp',
@@ -13,5 +14,6 @@ __all__ = [
     'comment_bp',
     'applicant_bp',
     'user_bp',
-    'reference_bp'
+    'reference_bp',
+    'chat_bp'
 ]
