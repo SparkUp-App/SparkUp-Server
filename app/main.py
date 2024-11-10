@@ -1,17 +1,15 @@
 import logging
-import eventlet
 from sqlalchemy import text
 from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
 
-from app.extensions import db, socketio, security, migrate, db_session
+from app.extensions import db, socketio, security, migrate
 from app.models import user_datastore
 from app.config import Config
 from app.routes import *
 
-
-def create_app():
-    # Logger
+def create_app(config_class=Config):
+    # Logger setup
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -20,13 +18,12 @@ def create_app():
     logger.info('Logger is set up')
 
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(config_class)
 
-    # Initialize extensions
+    # Initialize extensions with app
     db.init_app(app)
     migrate.init_app(app, db)
     security.init_app(app, user_datastore)
-    socketio.init_app(app, cors_allowed_origins='*')
 
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -63,7 +60,4 @@ def create_app():
         except Exception as e:
             return str(e), 500
 
-    with app.app_context():
-        db_session.configure(bind=db.engine)
-
-    return app, socketio
+    return app

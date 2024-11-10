@@ -9,8 +9,7 @@ migrate = Migrate()
 security = Security()
 db_session = sessionmaker()
 socketio = SocketIO(
-    cors_allowed_origins="*",
-    async_mode='eventlet',
     logger=True,
-    engineio_logger=True
+    engineio_logger=True,
+    async_mode='eventlet'
 )

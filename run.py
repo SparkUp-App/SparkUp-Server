@@ -1,9 +1,8 @@
-from app.main import create_app
-from app.extensions import db, socketio
-
-app, socketio = create_app()
+from wsgi import app, socketio
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    socketio.run(app)
+    socketio.run(app,
+                host='0.0.0.0',
+                port=5000,
+                debug=True,
+                use_reloader=True)
