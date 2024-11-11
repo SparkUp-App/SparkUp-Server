@@ -1,8 +1,13 @@
-from wsgi import app, socketio
+import eventlet
+eventlet.monkey_patch(all=False, socket=True)
+
+from app.extensions import db
+from app.main import create_app
+
+app, socketio = create_app()
 
 if __name__ == '__main__':
-    socketio.run(app,
-                host='0.0.0.0',
-                port=5000,
-                debug=True,
-                use_reloader=True)
+    with app.app_context():
+        #eventlet.monkey_patch()
+        db.create_all()
+    socketio.run(app)

@@ -8,6 +8,7 @@ from app.models import user_datastore
 from app.config import Config
 from app.routes import *
 
+
 def create_app(config_class=Config):
     # Logger setup
     logging.basicConfig(
@@ -24,6 +25,7 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     security.init_app(app, user_datastore)
+    socketio.init_app(app, cors_allowed_origins='*', async_mode='eventlet')
 
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -34,6 +36,7 @@ def create_app(config_class=Config):
     app.register_blueprint(user_bp, url_prefix='/user')
     app.register_blueprint(reference_bp, url_prefix='/reference')
     app.register_blueprint(chat_bp, url_prefix='/chat')
+
 
     @app.errorhandler(HTTPException)
     def http_exception_handler(error):
@@ -60,4 +63,4 @@ def create_app(config_class=Config):
         except Exception as e:
             return str(e), 500
 
-    return app
+    return app, socketio
