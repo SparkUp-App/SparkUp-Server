@@ -37,7 +37,6 @@ def create_app(config_class=Config):
     app.register_blueprint(reference_bp, url_prefix='/reference')
     app.register_blueprint(chat_bp, url_prefix='/chat')
 
-
     @app.errorhandler(HTTPException)
     def http_exception_handler(error):
         response = error.get_response()

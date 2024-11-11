@@ -8,6 +8,5 @@ app, socketio = create_app()
 
 if __name__ == '__main__':
     with app.app_context():
-        #eventlet.monkey_patch()
         db.create_all()
     socketio.run(app)

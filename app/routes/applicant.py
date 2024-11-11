@@ -18,27 +18,59 @@ applicant_api = Api(
 applicant_ns = applicant_api.namespace('', description='Operations related to applicants')
 
 
-@applicant_ns.route('/list/<int:post_id>')
+@applicant_ns.route('/list/<int:user_id>')
 class ListApplicants(Resource):
     @applicant_ns.response(200, 'Success')
     @applicant_ns.response(400, 'Bad Request')
-    @applicant_ns.response(404, 'Post not found')
-    def get(self, post_id):
-        if not db.session.scalar(select(exists().where(Post.id == post_id))):
-            return jsonify_response({'error': 'Post not found'}, 404)
+    @applicant_ns.response(404, 'User not found')
+    def get(self, user_id):
+        # Verify user exists
+        if not db.session.scalar(select(exists().where(User.id == user_id))):
+            return jsonify_response({'error': 'User not found'}, 404)
 
-        applicants = PostApplicant.query.filter_by(post_id=post_id, review_status=0).all()
-        applicants_info = []
-        for applicant in applicants:
-            profile = Profile.query.get(applicant.user_id)
-            applicants_info.append({
-                'user_id': applicant.user_id,
-                'nickname': profile.nickname if profile is not None else 'Anonymous',
-                'applied_time': to_iso8601(applicant.applied_time),
-                'attributes': applicant.attributes
-            })
+        try:
+            results = db.session.query(
+                PostApplicant, Post, Profile
+            ).options(
+                joinedload(PostApplicant.post),
+                joinedload(PostApplicant.user)
+            ).join(
+                Post, PostApplicant.post_id == Post.id
+            ).join(
+                Profile, PostApplicant.user_id == Profile.id
+            ).filter(
+                Post.user_id == user_id,
+                PostApplicant.review_status == 0
+            ).order_by(
+                Post.event_start_date.desc(),
+                PostApplicant.applied_time.desc()
+            ).all()
 
-        return jsonify_response({'applicants': applicants_info}, 200)
+            grouped_applicants = {}
+            for applicant, post, profile in results:
+                if post.id not in grouped_applicants:
+                    grouped_applicants[post.id] = {
+                        'post_id': post.id,
+                        'post_title': post.title,
+                        'post_type': post.type,
+                        'number_of_people_required': post.number_of_people_required,
+                        'applicants': []
+                    }
+
+                grouped_applicants[post.id]['applicants'].append({
+                    'user_id': applicant.user_id,
+                    'nickname': profile.nickname if profile is not None else 'Anonymous',
+                    'applied_time': to_iso8601(applicant.applied_time),
+                    'attributes': applicant.attributes
+                })
+
+            posts_with_applicants = list(grouped_applicants.values())
+
+            return jsonify_response({'posts': posts_with_applicants}, 200)
+
+        except Exception as e:
+            current_app.logger.error(f"Error listing applicants: {str(e)}")
+            return jsonify_response({'error': str(e)}, 500)
 
 
 create_applicant_model = applicant_api.model(
