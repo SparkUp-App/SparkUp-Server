@@ -1,1 +1,1 @@
-web: bin/start-pgbouncer gunicorn -k eventlet -w 1 wsgi:app
+web: bin/start-pgbouncer gunicorn -k eventlet -w 1 run:app
