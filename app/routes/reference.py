@@ -256,9 +256,6 @@ class CreateReference(Resource):
                     return jsonify_response({'error': 'Users are not participants in this event'}, 400)
 
             post, participant_count = post_query
-            if post.event_end_date > now:
-                return jsonify_response({'error': 'Cannot create reference before event ends'}, 400)
-
             if participant_count != 2:
                 return jsonify_response({'error': 'Both users must be participants in the event'}, 400)
 
