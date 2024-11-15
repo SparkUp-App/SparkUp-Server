@@ -297,10 +297,7 @@ class CreateReference(Resource):
 
             db.session.commit()
 
-            return jsonify_response({
-                'message': 'Reference created successfully',
-                'user_new_rating': new_rating
-            }, 201)
+            return jsonify_response({'message': 'Reference created successfully'}, 201)
 
         except Exception as e:
             current_app.logger.error(f"Error creating reference: {str(e)}")
