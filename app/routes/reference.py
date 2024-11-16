@@ -153,35 +153,90 @@ class ListReferences(Resource):
             return jsonify_response({'error': 'User not found'}, 404)
 
         try:
-            # First, get the overall average rating
+            # First get the reference counts per post
+            reference_counts = db.session.query(
+                Reference.post_id,
+                func.count().label('ref_count')
+            ).filter(
+                Reference.to_user_id == user_id
+            ).group_by(
+                Reference.post_id
+            ).subquery()
+
+            # Then get posts ordered by event_end_date with their reference counts
+            posts_with_counts = db.session.query(
+                Post.id.label('post_id'),
+                Post.event_end_date,
+                reference_counts.c.ref_count,
+                func.sum(reference_counts.c.ref_count).over(
+                    order_by=Post.event_end_date.desc()
+                ).label('cumulative_count')
+            ).join(
+                reference_counts,
+                Post.id == reference_counts.c.post_id
+            ).order_by(
+                Post.event_end_date.desc()
+            ).subquery()
+
+            # Get post IDs for the current page
+            post_ids_query = db.session.query(
+                posts_with_counts.c.post_id
+            ).filter(
+                posts_with_counts.c.cumulative_count <= (page * per_page)
+            )
+
+            if page > 1:
+                previous_total = db.session.query(
+                    posts_with_counts.c.cumulative_count
+                ).filter(
+                    posts_with_counts.c.cumulative_count <= ((page - 1) * per_page)
+                ).order_by(
+                    posts_with_counts.c.cumulative_count.desc()
+                ).first()
+
+                if previous_total:
+                    post_ids_query = post_ids_query.filter(
+                        posts_with_counts.c.cumulative_count > previous_total[0]
+                    )
+
+            post_ids = [p[0] for p in post_ids_query.all()]
+
+            # Get total references count
+            total_references = db.session.query(
+                func.count(Reference.post_id)
+            ).filter(
+                Reference.to_user_id == user_id
+            ).scalar()
+
+            # Get the overall average rating
             overall_avg_rating = db.session.query(
                 func.avg(Reference.rating)
             ).filter(
                 Reference.to_user_id == user_id
             ).scalar()
-            # Convert Decimal to float
             overall_avg_rating = float(overall_avg_rating) if overall_avg_rating is not None else 0.0
 
-            # Get event-specific average ratings in a separate query
+            # Get event-specific average ratings
             event_ratings = db.session.query(
                 Reference.post_id,
                 func.avg(Reference.rating).label('avg_rating'),
                 func.count(Reference.rating).label('rating_count')
             ).filter(
-                Reference.to_user_id == user_id
+                Reference.to_user_id == user_id,
+                Reference.post_id.in_(post_ids)
             ).group_by(
                 Reference.post_id
             ).all()
 
-            # Convert to dictionary for easy lookup, ensuring float conversion
+            # Convert to dictionary for easy lookup
             event_ratings_dict = {
                 er.post_id: {
                     'avg_rating': round(float(er.avg_rating), 2) if er.avg_rating is not None else 0.0,
-                    'rating_count': int(er.rating_count)  # Convert to int to be safe
+                    'rating_count': int(er.rating_count)
                 } for er in event_ratings
             }
 
-            # Build main query for references with all details
+            # Get all references and related data for the selected events
             query = db.session.query(
                 Reference,
                 User,
@@ -194,18 +249,14 @@ class ListReferences(Resource):
             ).join(
                 Post, Reference.post_id == Post.id
             ).filter(
-                Reference.to_user_id == user_id
+                Reference.to_user_id == user_id,
+                Reference.post_id.in_(post_ids)
             ).order_by(
                 Post.event_end_date.desc(),
                 Reference.post_id
             )
 
-            # Get total count for pagination
-            total_items = query.count()
-            total_pages = (total_items + per_page - 1) // per_page
-
-            # Apply pagination
-            results = query.offset((page - 1) * per_page).limit(per_page).all()
+            results = query.all()
 
             # Group results by event
             events_dict = {}
@@ -217,6 +268,9 @@ class ListReferences(Resource):
                             'post_id': post.id,
                             'title': post.title,
                             'type': post.type,
+                            'event_start_date': to_iso8601(post.event_start_date),
+                            'event_end_date': to_iso8601(post.event_end_date),
+                            'location': post.location,
                             'average_rating': event_rating_info['avg_rating'],
                             'rating_count': event_rating_info['rating_count']
                         },
@@ -226,23 +280,26 @@ class ListReferences(Resource):
                 events_dict[post.id]['references'].append({
                     'from_user_id': user.id,
                     'from_user_nickname': profile.nickname,
-                    'rating': int(ref.rating),  # Convert to int to be safe
+                    'rating': int(ref.rating),
                     'content': ref.content
                 })
 
-            # Convert dictionary to list for response
+            # Convert dictionary to list for response, maintaining post_ids order
             events_list = [
                 {
-                    'event': event_data['event_info'],
-                    'references': event_data['references']
+                    'event': events_dict[post_id]['event_info'],
+                    'references': events_dict[post_id]['references']
                 }
-                for event_data in events_dict.values()
+                for post_id in post_ids if post_id in events_dict
             ]
+
+            # Calculate total pages based on references count
+            total_pages = (total_references + per_page - 1) // per_page
 
             return jsonify_response({
                 'events': events_list,
                 'overall_average_rating': round(overall_avg_rating, 2),
-                'total_references': total_items,
+                'total_references': total_references,
                 'page': page,
                 'pages': total_pages,
                 'per_page': per_page
