@@ -153,7 +153,35 @@ class ListReferences(Resource):
             return jsonify_response({'error': 'User not found'}, 404)
 
         try:
-            # Build query for received references
+            # First, get the overall average rating
+            overall_avg_rating = db.session.query(
+                func.avg(Reference.rating)
+            ).filter(
+                Reference.to_user_id == user_id
+            ).scalar()
+            # Convert Decimal to float
+            overall_avg_rating = float(overall_avg_rating) if overall_avg_rating is not None else 0.0
+
+            # Get event-specific average ratings in a separate query
+            event_ratings = db.session.query(
+                Reference.post_id,
+                func.avg(Reference.rating).label('avg_rating'),
+                func.count(Reference.rating).label('rating_count')
+            ).filter(
+                Reference.to_user_id == user_id
+            ).group_by(
+                Reference.post_id
+            ).all()
+
+            # Convert to dictionary for easy lookup, ensuring float conversion
+            event_ratings_dict = {
+                er.post_id: {
+                    'avg_rating': round(float(er.avg_rating), 2) if er.avg_rating is not None else 0.0,
+                    'rating_count': int(er.rating_count)  # Convert to int to be safe
+                } for er in event_ratings
+            }
+
+            # Build main query for references with all details
             query = db.session.query(
                 Reference,
                 User,
@@ -168,7 +196,8 @@ class ListReferences(Resource):
             ).filter(
                 Reference.to_user_id == user_id
             ).order_by(
-                Reference.post_id.desc()
+                Post.event_end_date.desc(),
+                Reference.post_id
             )
 
             # Get total count for pagination
@@ -178,33 +207,45 @@ class ListReferences(Resource):
             # Apply pagination
             results = query.offset((page - 1) * per_page).limit(per_page).all()
 
-            # Calculate average rating
-            avg_rating = db.session.query(
-                func.avg(Reference.rating)
-            ).filter(
-                Reference.to_user_id == user_id
-            ).scalar() or 0
+            # Group results by event
+            events_dict = {}
+            for ref, user, profile, post in results:
+                if post.id not in events_dict:
+                    event_rating_info = event_ratings_dict.get(post.id, {'avg_rating': 0.0, 'rating_count': 0})
+                    events_dict[post.id] = {
+                        'event_info': {
+                            'post_id': post.id,
+                            'title': post.title,
+                            'type': post.type,
+                            'average_rating': event_rating_info['avg_rating'],
+                            'rating_count': event_rating_info['rating_count']
+                        },
+                        'references': []
+                    }
 
-            # Format results
-            references = [
-                OrderedDict([
-                    ('post_id', post.id),
-                    ('post_title', post.title),
-                    ('post_type', post.type),
-                    ('from_user_id', user.id),
-                    ('from_user_nickname', profile.nickname),
-                    ('rating', ref.rating),
-                    ('content', ref.content)
-                ])
-                for ref, user, profile, post in results
+                events_dict[post.id]['references'].append({
+                    'from_user_id': user.id,
+                    'from_user_nickname': profile.nickname,
+                    'rating': int(ref.rating),  # Convert to int to be safe
+                    'content': ref.content
+                })
+
+            # Convert dictionary to list for response
+            events_list = [
+                {
+                    'event': event_data['event_info'],
+                    'references': event_data['references']
+                }
+                for event_data in events_dict.values()
             ]
 
             return jsonify_response({
-                'references': references,
+                'events': events_list,
+                'overall_average_rating': round(overall_avg_rating, 2),
                 'total_references': total_items,
                 'page': page,
-                'per_page': per_page,
-                'total_pages': total_pages
+                'pages': total_pages,
+                'per_page': per_page
             }, 200)
 
         except Exception as e:
