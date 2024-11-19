@@ -100,9 +100,20 @@ class UserBookmarks(Resource):
             return jsonify_response({'error': str(e)}, 500)
 
 
+UserAppliedModel = user_ns.model(
+    'UserAppliedModel',
+    {
+        'page': fields.Integer(description='Page number of the results, defaults to 1', default=1),
+        'per_page': fields.Integer(description='Number of posts per page, defaults to 20', default=20),
+        'review_status': fields.Integer(description='Filter by review status (0: reviewing, 1: rejected, 2: matched)', required=False),
+    }
+)
+
+
 @user_ns.route('/applied/<int:user_id>')
 class UserApplied(Resource):
-    @user_ns.expect(DynamicLoadModel)
+    # Update the model to include review_status
+    @user_ns.expect(UserAppliedModel)
     @user_ns.response(200, 'Success')
     @user_ns.response(400, 'Bad Request')
     @user_ns.response(404, 'User Not Found')
@@ -110,17 +121,28 @@ class UserApplied(Resource):
         data = request.get_json()
         page = data.get('page', 1)
         per_page = data.get('per_page', 20)
+        review_status = data.get('review_status')  # Optional filter
 
         try:
             if not db.session.scalar(select(exists().where(User.id == user_id))):
                 current_app.logger.error(f'User not found: {user_id}')
                 return jsonify_response({'error': 'User not found'}, 404)
 
+            # Build base query
             applicants = PostApplicant.query \
                 .join(PostApplicant.post) \
                 .options(joinedload(PostApplicant.post)) \
-                .filter(PostApplicant.user_id == user_id,
-                        Post.event_end_date < datetime.now(timezone.utc))
+                .filter(
+                    PostApplicant.user_id == user_id,
+                    Post.event_end_date < datetime.now(timezone.utc)
+                )
+
+            # Add review_status filter if provided
+            if review_status is not None:
+                applicants = applicants.filter(PostApplicant.review_status == review_status)
+
+            # Apply ordering
+            applicants = applicants.order_by(PostApplicant.applied_time.desc())
 
             pagination = applicants.paginate(page=page, per_page=per_page, error_out=False)
             posts = [

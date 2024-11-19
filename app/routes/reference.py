@@ -281,8 +281,12 @@ class ListReferences(Resource):
                     'from_user_id': user.id,
                     'from_user_nickname': profile.nickname,
                     'rating': int(ref.rating),
-                    'content': ref.content
+                    'content': ref.content,
+                    'is_host': user.id == post.user_id
                 })
+
+                if events_dict[post.id]['references'][-1]['is_host']:
+                    events_dict[post.id]['references'][0], events_dict[post.id]['references'][-1] = events_dict[post.id]['references'][-1], events_dict[post.id]['references'][0]
 
             # Convert dictionary to list for response, maintaining post_ids order
             events_list = [
