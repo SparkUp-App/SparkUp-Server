@@ -1,7 +1,7 @@
 from flask import Blueprint, request, current_app
 from flask_socketio import emit, join_room
 from flask_restx import Api, Resource, fields
-from sqlalchemy import exists, select
+from sqlalchemy import exists, select, and_, func
 from sqlalchemy.orm import joinedload
 from functools import lru_cache
 from datetime import datetime, timedelta
@@ -47,21 +47,44 @@ class ChatRooms(Resource):
             if not db.session.scalar(select(exists().where(User.id == user_id))):
                 return jsonify_response({'error': 'User not found'}, 404)
 
-            # Get chat rooms with latest message
+            # Subquery to get latest message per room
+            latest_messages = db.session.query(
+                Message.post_id,
+                Message.id.label('message_id'),
+                Message.sender_id,
+                Message.content,
+                Message.created_at,
+                func.row_number().over(
+                    partition_by=Message.post_id,
+                    order_by=Message.created_at.desc()
+                ).label('rn')
+            ).subquery()
+
+            # Main query joining with latest messages
             chat_rooms = db.session.query(
-                ChatRoom, Message
+                ChatRoom,
+                latest_messages.c.message_id,
+                latest_messages.c.sender_id,
+                latest_messages.c.content,
+                latest_messages.c.created_at
             ).join(
-                ChatRoomUser, ChatRoom.post_id == ChatRoomUser.post_id
+                ChatRoomUser,
+                ChatRoom.post_id == ChatRoomUser.post_id
             ).outerjoin(
-                Message, ChatRoom.post_id == Message.post_id
+                latest_messages,
+                and_(
+                    ChatRoom.post_id == latest_messages.c.post_id,
+                    latest_messages.c.rn == 1
+                )
             ).filter(
                 ChatRoomUser.user_id == user_id
             ).order_by(
-                Message.created_at.desc()
+                latest_messages.c.created_at.desc().nullslast()
             ).paginate(page=page, per_page=per_page)
 
             rooms_data = []
-            for room, latest_message in chat_rooms.items:
+            for room, message_id, sender_id, content, created_at in chat_rooms.items:
+                # Get unread count for the room
                 unread_count = Message.query.filter(
                     Message.post_id == room.post_id,
                     ~Message.read_users.contains([user_id])
@@ -73,14 +96,15 @@ class ChatRooms(Resource):
                     'unread_count': unread_count
                 }
 
-                if latest_message:
-                    sender = Profile.query.get(latest_message.sender_id)
+                # Add latest message info if exists
+                if message_id:
+                    sender = Profile.query.get(sender_id)
                     room_data['latest_message'] = {
-                        'id': latest_message.id,
-                        'sender_id': latest_message.sender_id,
+                        'id': message_id,
+                        'sender_id': sender_id,
                         'sender_name': sender.nickname if sender else 'Unknown',
-                        'content': latest_message.content,
-                        'created_at': latest_message.created_at.isoformat()
+                        'content': content,
+                        'created_at': created_at.isoformat()
                     }
 
                 rooms_data.append(room_data)
