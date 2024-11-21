@@ -1,5 +1,5 @@
 from flask import Blueprint, request, current_app
-from flask_socketio import emit, join_room
+from flask_socketio import emit, join_room, leave_room
 from flask_restx import Api, Resource, fields
 from sqlalchemy import exists, select, and_, func
 from sqlalchemy.orm import joinedload
@@ -257,11 +257,16 @@ def handle_connect():
             current_app.logger.warning('Connection attempt without user_id')
             return False
 
+        # Clean up any existing rooms this socket might be in
+        if request.sid in [sid for sid in connected_users.values()]:
+            for old_user_id, old_sid in list(connected_users.items()):
+                if old_sid == request.sid:
+                    leave_room(f'user_{old_user_id}')
+                    del connected_users[old_user_id]
+
         # Join user's personal room
         user_room = f'user_{user_id}'
         join_room(user_room)
-
-        # Store connection info
         connected_users[user_id] = request.sid
 
         current_app.logger.info(f'User {user_id} connected with sid {request.sid}')
@@ -277,11 +282,11 @@ def handle_disconnect():
     try:
         user_id = request.args.get('user_id')
         if user_id and user_id in connected_users:
+            leave_room(f'user_{user_id}')
             del connected_users[user_id]
             current_app.logger.info(f'User {user_id} disconnected')
     except Exception as e:
         current_app.logger.error(f'Error in handle_disconnect: {str(e)}')
-
 
 # Batch message processing
 def process_message_batch(messages, post_id, recipient_user_ids):
