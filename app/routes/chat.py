@@ -252,6 +252,7 @@ connected_users = {}
 @socketio.on('connect')
 def handle_connect():
     try:
+        current_app.logger.info(request.get_json())
         user_id = request.args.get('user_id')
         if not user_id:
             current_app.logger.warning('Connection attempt without user_id')
@@ -285,8 +286,10 @@ def handle_disconnect():
             leave_room(f'user_{user_id}')
             del connected_users[user_id]
             current_app.logger.info(f'User {user_id} disconnected')
+
     except Exception as e:
         current_app.logger.error(f'Error in handle_disconnect: {str(e)}')
+
 
 # Batch message processing
 def process_message_batch(messages, post_id, recipient_user_ids):
