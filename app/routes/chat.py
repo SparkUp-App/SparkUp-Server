@@ -252,7 +252,18 @@ connected_users = {}
 @socketio.on('connect')
 def handle_connect():
     try:
-        current_app.logger.info(request.get_json())
+        print("\n=== Connection Info ===")
+        print(f"Socket ID: {request.sid}")
+        print(f"Transport: {request.namespace}")
+        print(f"Environment: {request.environ}")
+        print(f"Headers: {dict(request.headers)}")
+        print(f"Remote Address: {request.remote_addr}")
+        print(f"Arguments: {request.args}")
+        print(f"Cookie: {request.cookies}")
+
+        # Print custom auth/query parameters if any
+        #print(f"Query String: {request.query_string.decode()}")
+
         user_id = request.args.get('user_id')
         if not user_id:
             current_app.logger.warning('Connection attempt without user_id')
