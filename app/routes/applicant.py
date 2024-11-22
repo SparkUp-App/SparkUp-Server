@@ -1,6 +1,6 @@
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
-from sqlalchemy import case, exists, select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import joinedload
 
 from app.utils import jsonify_response, to_iso8601
@@ -203,8 +203,10 @@ class ReviewApplicant(Resource):
 
         applicant = PostApplicant.query \
             .options(joinedload(PostApplicant.post)) \
+            .options(joinedload(PostApplicant.post).joinedload(Post.user).joinedload(User.profile)) \
             .filter_by(user_id=data['user_id'], post_id=data['post_id']) \
             .first()
+
         if not applicant:
             current_app.logger.error(f"Applicant not found: {data['post_id']}")
             return jsonify_response({'error': 'Applicant not found'}, 404)
@@ -213,22 +215,46 @@ class ReviewApplicant(Resource):
             current_app.logger.error(f"Applicant already reviewed: {applicant.review_status}")
             return jsonify_response({'error': f'Applicant already reviewed: {applicant.review_status}'}, 400)
 
-        if data['approve']:
-            if applicant.post.number_of_people_required == 0:
-                applicant.review_status = 1
-                current_app.logger.error('No people required')
-                return jsonify_response({'error': 'No people required'}, 400)
-
-            applicant.post.number_of_people_required -= 1
-            applicant.post.manual_update()
-            applicant.review_status = 2
-            char_room_user = ChatRoomUser(post_id=data['post_id'], user_id=data['user_id'])
-            db.session.add(char_room_user)
-        else:
-            applicant.review_status = 1
         try:
+            from app.extensions import socketio
+
+            if data['approve']:
+                if applicant.post.number_of_people_required == 0:
+                    applicant.review_status = 1
+                    current_app.logger.error('No people required')
+                    return jsonify_response({'error': 'No people required'}, 400)
+
+                applicant.post.number_of_people_required -= 1
+                applicant.post.manual_update()
+                applicant.review_status = 2
+
+                # Create chat room user
+                chat_room_user = ChatRoomUser(post_id=data['post_id'], user_id=data['user_id'])
+                db.session.add(chat_room_user)
+
+                # Emit socket event to the approved user
+                user_room = f"user_{data['user_id']}"
+                socketio.emit('application_approved', {
+                    'post_id': data['post_id'],
+                    'post_title': applicant.post.title,
+                    'host_nickname': applicant.post.user.profile.nickname,
+                    'message': f"Your application for '{applicant.post.title}' has been approved by {applicant.post.user.profile.nickname}! You can now join the chat room."
+                }, room=user_room)
+            else:
+                applicant.review_status = 1
+
+                # Emit socket event for rejection
+                user_room = f"user_{data['user_id']}"
+                socketio.emit('application_rejected', {
+                    'post_id': data['post_id'],
+                    'post_title': applicant.post.title,
+                    'host_nickname': applicant.post.user.profile.nickname,
+                    'message': f"Your application for '{applicant.post.title}' has been rejected by {applicant.post.user.profile.nickname}."
+                }, room=user_room)
+
             db.session.commit()
             return jsonify_response({'message': "Applicant review successfully"}, 200)
+
         except Exception as e:
             current_app.logger.error(e)
             db.session.rollback()

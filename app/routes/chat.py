@@ -261,9 +261,6 @@ def handle_connect():
         current_app.logger.info(f"Arguments: {request.args}")
         current_app.logger.info(f"Cookie: {request.cookies}")
 
-        # Print custom auth/query parameters if any
-        #print(f"Query String: {request.query_string.decode()}")
-
         user_id = request.args.get('user_id')
         if not user_id:
             current_app.logger.warning('Connection attempt without user_id')
@@ -302,33 +299,6 @@ def handle_disconnect():
         current_app.logger.error(f'Error in handle_disconnect: {str(e)}')
 
 
-# Batch message processing
-def process_message_batch(messages, post_id, recipient_user_ids):
-    """Process and emit a batch of messages efficiently"""
-    try:
-        message_data_batch = []
-        for message in messages:
-            message_data = {
-                'id': message.id,
-                'post_id': post_id,
-                'sender_id': message.sender_id,
-                'content': message.content,
-                'created_at': message.created_at.isoformat(),
-                'read_users': message.read_users
-            }
-            message_data_batch.append(message_data)
-
-        # Emit messages to all recipients in their personal rooms
-        for user_id in recipient_user_ids:
-            user_room = f'user_{user_id}'
-            for message_data in message_data_batch:
-                emit('new_message', message_data, room=user_room)
-
-    except Exception as e:
-        current_app.logger.error(f'Error in process_message_batch: {str(e)}')
-        raise
-
-
 @socketio.on('send_message')
 def handle_message(data):
     try:
@@ -350,6 +320,12 @@ def handle_message(data):
             emit('error', {'message': 'Not authorized to send messages in this chat room'})
             return
 
+        # Get sender's profile for nickname
+        sender_profile = Profile.query.get(sender_id)
+        if not sender_profile:
+            emit('error', {'message': 'Sender profile not found'})
+            return
+
         # Create new message
         message = Message(
             post_id=post_id,
@@ -365,8 +341,20 @@ def handle_message(data):
             # Get recipient user IDs from cached room members
             recipient_user_ids = [member[0] for member in room_members]
 
-            # Process and emit message
-            process_message_batch([message], post_id, recipient_user_ids)
+            # Create message data with sender's nickname
+            message_data = {
+                'id': message.id,
+                'post_id': post_id,
+                'sender_id': sender_id,
+                'sender_name': sender_profile.nickname,  # Include sender's nickname
+                'content': content,
+                'created_at': message.created_at.isoformat(),
+            }
+
+            # Emit message to all recipients in their personal rooms
+            for user_id in recipient_user_ids:
+                user_room = f'user_{user_id}'
+                emit('new_message', message_data, room=user_room)
 
             current_app.logger.info(f'Message {message.id} sent successfully to {len(recipient_user_ids)} recipients')
 
