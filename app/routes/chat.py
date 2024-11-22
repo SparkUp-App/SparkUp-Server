@@ -252,14 +252,14 @@ connected_users = {}
 @socketio.on('connect')
 def handle_connect():
     try:
-        print("\n=== Connection Info ===")
-        print(f"Socket ID: {request.sid}")
-        print(f"Transport: {request.namespace}")
-        print(f"Environment: {request.environ}")
-        print(f"Headers: {dict(request.headers)}")
-        print(f"Remote Address: {request.remote_addr}")
-        print(f"Arguments: {request.args}")
-        print(f"Cookie: {request.cookies}")
+        current_app.logger.info("\n=== Connection Info ===")
+        current_app.logger.info(f"Socket ID: {request.sid}")
+        current_app.logger.info(f"Transport: {request.namespace}")
+        current_app.logger.info(f"Environment: {request.environ}")
+        current_app.logger.info(f"Headers: {dict(request.headers)}")
+        current_app.logger.info(f"Remote Address: {request.remote_addr}")
+        current_app.logger.info(f"Arguments: {request.args}")
+        current_app.logger.info(f"Cookie: {request.cookies}")
 
         # Print custom auth/query parameters if any
         #print(f"Query String: {request.query_string.decode()}")
