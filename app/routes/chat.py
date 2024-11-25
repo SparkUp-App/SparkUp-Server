@@ -85,10 +85,11 @@ class ChatRooms(Resource):
             rooms_data = []
             for room, message_id, sender_id, content, created_at in chat_rooms.items:
                 # Get unread count for the room
-                unread_count = Message.query.filter(
-                    Message.post_id == room.post_id,
-                    ~Message.read_users.contains([user_id])
-                ).count()
+                messages = db.session.query(Message).filter(
+                    Message.post_id == room.post_id
+                ).all()
+
+                unread_count = sum(1 for msg in messages if user_id not in msg.read_users)
 
                 room_data = {
                     'post_id': room.post_id,

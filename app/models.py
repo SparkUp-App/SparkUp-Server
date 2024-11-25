@@ -488,6 +488,9 @@ class ChatRoomUser(db.Model):
 
 class Message(db.Model):
     __tablename__ = 'messages'
+    __table_args__ = (
+        db.Index('idx_messages_post_id', 'post_id'),  # Simple index on post_id is sufficient
+    )
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer,
                         db.ForeignKey('chat_rooms.post_id', ondelete='CASCADE'),
