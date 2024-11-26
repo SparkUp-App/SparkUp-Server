@@ -6,7 +6,7 @@ from sqlalchemy.orm import joinedload
 from functools import lru_cache
 from datetime import datetime, timedelta
 
-from app.utils import jsonify_response
+from app.utils import jsonify_response, to_iso8601
 from app.extensions import db, socketio
 from app.models import ChatRoom, ChatRoomUser, Message, User, Profile
 
@@ -105,7 +105,7 @@ class ChatRooms(Resource):
                         'sender_id': sender_id,
                         'sender_name': sender.nickname if sender else 'Unknown',
                         'content': content,
-                        'created_at': created_at.isoformat()
+                        'created_at': to_iso8601(created_at)
                     }
 
                 rooms_data.append(room_data)
@@ -198,7 +198,7 @@ class ChatMessages(Resource):
                     'sender_id': message.sender_id,
                     'sender_name': sender.nickname if sender else 'Unknown',
                     'content': message.content,
-                    'created_at': message.created_at.isoformat(),
+                    'created_at': to_iso8601(message.created_at),
                     'read_users': message.read_users
                 }
                 formatted_messages.append(message_data)
@@ -260,7 +260,7 @@ class ChatRoomUsers(Resource):
                     'user_id': user.id,
                     'nickname': profile.nickname,
                     'rating': user.rating or 0.0,
-                    'joined_at': room_user.joined_at.isoformat(),
+                    'joined_at': to_iso8601(room_user.joined_at),
                     'is_host': user.id == chat_room.post.user_id
                 }
                 users.append(user_data)
@@ -400,7 +400,7 @@ def handle_message(data):
                 'sender_id': sender_id,
                 'sender_name': sender_profile.nickname,  # Include sender's nickname
                 'content': content,
-                'created_at': message.created_at.isoformat(),
+                'created_at': to_iso8601(message.created_at),
             }
 
             # Emit message to all recipients in their personal rooms
