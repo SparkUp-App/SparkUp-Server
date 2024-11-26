@@ -85,9 +85,7 @@ class ChatRooms(Resource):
             rooms_data = []
             for room, message_id, sender_id, content, created_at in chat_rooms.items:
                 # Get unread count for the room
-                messages = db.session.query(Message).filter(
-                    Message.post_id == room.post_id
-                ).all()
+                messages = Message.query.filter(Message.post_id == room.post_id).all()
 
                 unread_count = sum(1 for msg in messages if user_id not in msg.read_users)
 
@@ -174,7 +172,18 @@ class ChatMessages(Resource):
                 query = query.filter(Message.id < before_id)
 
             # Get messages ordered by newest first with limit
-            messages = query.order_by(Message.id.desc()).limit(limit + 1).all()
+            messages = query.order_by(Message.id.desc()).all()
+
+            # Mark messages as read if this is the initial load (no before_id)
+            if before_id is None:
+                unread_messages = [
+                    msg for msg in messages
+                    if user_id not in msg.read_users
+                ]
+
+                for msg in unread_messages:
+                    if user_id not in msg.read_users:
+                        msg.read_users.append(user_id)
 
             # Check if there are more messages
             has_more = len(messages) > limit
@@ -202,17 +211,6 @@ class ChatMessages(Resource):
                     'read_users': message.read_users
                 }
                 formatted_messages.append(message_data)
-
-                # Mark messages as read if this is the initial load (no before_id)
-                if not before_id:
-                    unread_messages = [
-                        msg for msg in messages
-                        if user_id not in msg.read_users
-                    ]
-
-                    for msg in unread_messages:
-                        if user_id not in msg.read_users:
-                            msg.read_users.append(user_id)
 
             db.session.commit()
             return jsonify_response({
