@@ -226,6 +226,57 @@ class ChatMessages(Resource):
             return jsonify_response({'error': str(e)}, 500)
 
 
+@chat_ns.route('/room_users/<int:post_id>')
+class ChatRoomUsers(Resource):
+    @chat_ns.response(200, 'Success')
+    @chat_ns.response(403, 'Not authorized')
+    @chat_ns.response(404, 'Room not found')
+    def get(self, post_id):
+        """Get all users in a specific chat room"""
+        try:
+            # Verify chat room exists
+            chat_room = ChatRoom.query.get(post_id)
+            if not chat_room:
+                current_app.logger.error(f'Chat room not found for post_id: {post_id}')
+                return jsonify_response({'error': 'Chat room not found'}, 404)
+
+            # Get all users in the room with their profiles
+            room_users = db.session.query(
+                ChatRoomUser, User, Profile
+            ).join(
+                User, ChatRoomUser.user_id == User.id
+            ).join(
+                Profile, User.id == Profile.id
+            ).filter(
+                ChatRoomUser.post_id == post_id
+            ).order_by(
+                Profile.nickname
+            ).all()
+
+            # Format user data
+            users = []
+            for room_user, user, profile in room_users:
+                user_data = {
+                    'user_id': user.id,
+                    'nickname': profile.nickname,
+                    'rating': user.rating or 0.0,
+                    'joined_at': room_user.joined_at.isoformat(),
+                    'is_host': user.id == chat_room.post.user_id
+                }
+                users.append(user_data)
+                if user_data['is_host']:
+                    users[0], users[-1] = users[-1], users[0]
+
+            return jsonify_response({
+                'users': users,
+                'total_users': len(users)
+            }, 200)
+
+        except Exception as e:
+            current_app.logger.error(f"Error getting chat room users: {str(e)}")
+            return jsonify_response({'error': str(e)}, 500)
+
+
 # Cache for room members - cached for 5 minutes
 @lru_cache(maxsize=1000)
 def get_room_members(post_id, timestamp):
