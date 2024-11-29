@@ -431,8 +431,8 @@ class PostComment(db.Model):
             ('user_id', self.user_id),
             ('content', self.content),
             ('deleted', self.deleted),
-            ('comment_created_date', self.comment_created_date.strftime('%Y-%m-%d %H:%M:%S')),
-            ('comment_last_updated_date', self.comment_last_updated_date.strftime('%Y-%m-%d %H:%M:%S')),
+            ('comment_created_date', to_iso8601(self.comment_created_date)),
+            ('comment_last_updated_date', to_iso8601(self.comment_last_updated_date)),
             ('floor', self.floor),
             ('likes', len(self.likes)),
         ])
