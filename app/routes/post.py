@@ -232,9 +232,9 @@ class ListPost(Resource):
                         case(
                             (Post.type.in_(profile.interest_types), 0),
                             else_=1
-                        )
+                        ),
+                        Post.post_last_updated_date.desc()
                     )
-            post_query = post_query.order_by(Post.post_last_updated_date.desc())
         else:
             post_query = post_query.order_by(Post.post_created_date.desc())
 
