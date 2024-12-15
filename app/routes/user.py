@@ -43,9 +43,25 @@ class ViewUser(Resource):
             current_app.logger.error(f'User or Profile not found: {user_id}')
             return jsonify_response({'error': 'User or Profile not found'}, 404)
 
-        dict = OrderedDict([('participated', user.chat_rooms.count() - user.posts.count()),
-                            ('rating', user.rating if user.rating else 0.0),
-                            ('profile', user.profile.serialize())])
+        participated = user.chat_rooms.count() - user.posts.count()
+
+        # Calculate level based on participation
+        level = 0
+        if 11 <= participated <= 20:
+            level = 1
+        elif 21 <= participated <= 30:
+            level = 2
+        elif 31 <= participated <= 40:
+            level = 3
+        elif participated >= 41:
+            level = 4
+
+        dict = OrderedDict([
+            ('participated', participated),
+            ('level', level),
+            ('rating', user.rating if user.rating else 0.0),
+            ('profile', user.profile.serialize())
+        ])
 
         return jsonify_response(dict, 200)
 
