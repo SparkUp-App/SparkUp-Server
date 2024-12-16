@@ -254,12 +254,26 @@ class ChatRoomUsers(Resource):
             # Format user data
             users = []
             for room_user, user, profile in room_users:
+                # Calculate participation count and level
+                participated = user.chat_rooms.count() - user.posts.count()
+                level = 0
+                if 11 <= participated <= 20:
+                    level = 1
+                elif 21 <= participated <= 30:
+                    level = 2
+                elif 31 <= participated <= 40:
+                    level = 3
+                elif participated >= 41:
+                    level = 4
+
                 user_data = {
                     'user_id': user.id,
                     'nickname': profile.nickname,
                     'rating': user.rating or 0.0,
                     'joined_at': to_iso8601(room_user.joined_at),
-                    'is_host': user.id == chat_room.post.user_id
+                    'is_host': user.id == chat_room.post.user_id,
+                    'level': level,
+                    'participated': participated
                 }
                 users.append(user_data)
                 if user_data['is_host']:

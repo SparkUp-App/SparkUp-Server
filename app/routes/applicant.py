@@ -30,7 +30,7 @@ class ListApplicants(Resource):
 
         try:
             results = db.session.query(
-                PostApplicant, Post, Profile
+                PostApplicant, Post, Profile, User
             ).options(
                 joinedload(PostApplicant.post),
                 joinedload(PostApplicant.user)
@@ -38,6 +38,8 @@ class ListApplicants(Resource):
                 Post, PostApplicant.post_id == Post.id
             ).join(
                 Profile, PostApplicant.user_id == Profile.id
+            ).join(
+                User, PostApplicant.user_id == User.id
             ).filter(
                 Post.user_id == user_id,
                 PostApplicant.review_status == 0
@@ -46,8 +48,9 @@ class ListApplicants(Resource):
                 PostApplicant.applied_time.desc()
             ).all()
 
+            # Calculate participation count and level for each user
             grouped_applicants = {}
-            for applicant, post, profile in results:
+            for applicant, post, profile, user in results:
                 if post.id not in grouped_applicants:
                     grouped_applicants[post.id] = {
                         'post_id': post.id,
@@ -57,15 +60,28 @@ class ListApplicants(Resource):
                         'applicants': []
                     }
 
+                # Calculate participation count and level
+                participated = user.chat_rooms.count() - user.posts.count()
+                level = 0
+                if 11 <= participated <= 20:
+                    level = 1
+                elif 21 <= participated <= 30:
+                    level = 2
+                elif 31 <= participated <= 40:
+                    level = 3
+                elif participated >= 41:
+                    level = 4
+
                 grouped_applicants[post.id]['applicants'].append({
                     'user_id': applicant.user_id,
                     'nickname': profile.nickname if profile is not None else 'Anonymous',
                     'applied_time': to_iso8601(applicant.applied_time),
-                    'attributes': applicant.attributes
+                    'attributes': applicant.attributes,
+                    'level': level,
+                    'participated': participated
                 })
 
             posts_with_applicants = list(grouped_applicants.values())
-
             return jsonify_response({'posts': posts_with_applicants}, 200)
 
         except Exception as e:
