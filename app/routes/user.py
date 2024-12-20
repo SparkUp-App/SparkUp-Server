@@ -150,7 +150,7 @@ class UserApplied(Resource):
                 .options(joinedload(PostApplicant.post)) \
                 .filter(
                     PostApplicant.user_id == user_id,
-                    Post.event_end_date < datetime.now(timezone.utc)
+                    Post.event_end_date > datetime.now(timezone.utc)
                 )
 
             # Add review_status filter if provided
