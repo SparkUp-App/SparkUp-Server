@@ -418,7 +418,7 @@ def handle_message(data):
             # Emit message to all recipients in their personal rooms
             for user_id in recipient_user_ids:
                 user_room = f'user_{user_id}'
-                emit('new_message', message_data, room=user_room)
+                emit('new_message', message_data, to=connected_users[user_id])
 
             current_app.logger.info(f'Message {message.id} sent successfully to {len(recipient_user_ids)} recipients')
 
