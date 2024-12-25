@@ -54,7 +54,7 @@ class ListComment(Resource):
             comments = PostComment.query \
                 .options(joinedload(PostComment.user)) \
                 .filter_by(post_id=post_id) \
-                .order_by(PostComment.floor.asc()) \
+                .order_by(PostComment.floor.desc()) \
                 .paginate(page=page, per_page=per_page, error_out=False)
             return jsonify_response({
                 'comments': [comment.serialize(user_id=user_id) for comment in comments.items],
