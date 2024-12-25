@@ -75,6 +75,7 @@ class ListApplicants(Resource):
                 grouped_applicants[post.id]['applicants'].append({
                     'user_id': applicant.user_id,
                     'nickname': profile.nickname if profile is not None else 'Anonymous',
+                    'bio': profile.bio if profile is not None and profile.bio is not None else '',
                     'applied_time': to_iso8601(applicant.applied_time),
                     'attributes': applicant.attributes,
                     'level': level,
