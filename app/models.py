@@ -437,6 +437,17 @@ class PostComment(db.Model):
             ('likes', len(self.likes)),
         ])
         if self.user:
+            participated = self.user.chat_rooms.count() - self.user.posts.count()
+            level = 0
+            if 11 <= participated <= 20:
+                level = 1
+            elif 21 <= participated <= 30:
+                level = 2
+            elif 31 <= participated <= 40:
+                level = 3
+            elif participated >= 41:
+                level = 4
+            comment_dict['level'] = level
             comment_dict['nickname'] = Profile.query.get(self.user_id).nickname
             comment_dict['liked'] = db.session.execute(
                 select(exists().where(

@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from sqlalchemy import exists, select
+from sqlalchemy.orm import joinedload
 
 from app.utils import jsonify_response
 from app.extensions import db
@@ -51,6 +52,7 @@ class ListComment(Resource):
                 return jsonify_response({'error': 'Post not found'}, 404)
 
             comments = PostComment.query \
+                .options(joinedload(PostComment.user)) \
                 .filter_by(post_id=post_id) \
                 .order_by(PostComment.floor.asc()) \
                 .paginate(page=page, per_page=per_page, error_out=False)
