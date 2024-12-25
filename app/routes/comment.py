@@ -102,7 +102,7 @@ class CreateComment(Resource):
             if not post:
                 return jsonify_response({'error': 'Post does not exist'}, 404)
 
-            floor = PostComment.query.filter_by(user_id=user_id, post_id=post_id).count() + 1
+            floor = PostComment.query.filter_by(post_id=post_id).count() + 1
             comment = PostComment(user_id=user_id, post_id=post_id, content=content, floor=floor)
             post.manual_update()
             db.session.add(comment)
