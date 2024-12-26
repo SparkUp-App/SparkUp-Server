@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from app.utils import jsonify_response, to_iso8601
 from app.extensions import db, socketio
-from app.models import ChatRoom, ChatRoomUser, Message, User, Profile
+from app.models import ChatRoom, ChatRoomUser, Message, User, Profile, Post
 
 chat_bp = Blueprint('chat_bp', __name__)
 chat_api = Api(
@@ -390,6 +390,12 @@ def handle_message(data):
             emit('error', {'message': 'Sender profile not found'})
             return
 
+        # Get post
+        post = Post.query.get(post_id)
+        if not post:
+            emit('error', {'message': 'Post not found'})
+            return
+
         # Create new message
         message = Message(
             post_id=post_id,
@@ -409,6 +415,7 @@ def handle_message(data):
             message_data = {
                 'id': message.id,
                 'post_id': post_id,
+                'post_title': post.title,
                 'sender_id': sender_id,
                 'sender_name': sender_profile.nickname,  # Include sender's nickname
                 'content': content,
