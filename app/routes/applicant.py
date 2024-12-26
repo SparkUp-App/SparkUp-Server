@@ -256,7 +256,7 @@ class ReviewApplicant(Resource):
                     'post_title': applicant.post.title,
                     'host_nickname': applicant.post.user.profile.nickname,
                     'message': f"Your application for '{applicant.post.title}' has been approved by {applicant.post.user.profile.nickname}! You can now join the chat room."
-                }, room=user_room)
+                }, to=user_room)
             else:
                 applicant.review_status = 1
 
@@ -267,7 +267,7 @@ class ReviewApplicant(Resource):
                     'post_title': applicant.post.title,
                     'host_nickname': applicant.post.user.profile.nickname,
                     'message': f"Your application for '{applicant.post.title}' has been rejected by {applicant.post.user.profile.nickname}."
-                }, room=user_room)
+                }, to=user_room)
 
             db.session.commit()
             return jsonify_response({'message': "Applicant review successfully"}, 200)
