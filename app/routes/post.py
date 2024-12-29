@@ -228,9 +228,10 @@ class ListPost(Resource):
             if 'type' not in data or data['type'] is None:
                 profile = Profile.query.get(user_id)
                 if profile and profile.interest_types != []:
+                    interest_types = list(profile.interest_types)
                     post_query = post_query.order_by(
                         case(
-                            (Post.type.in_(profile.interest_types), 0),
+                            (Post.type.in_(interest_types), 0),
                             else_=1
                         ),
                         Post.post_last_updated_date.desc()
