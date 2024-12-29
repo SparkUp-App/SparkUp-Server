@@ -89,7 +89,6 @@ API documentation is available at `/docs` endpoint for each blueprint:
 ```
 sparkup/
 ├── app/
-│   ├── __init__.py
 │   ├── extensions.py      # Flask extensions
 │   ├── config.py         # Configuration
 │   ├── main.py          # Application factory
