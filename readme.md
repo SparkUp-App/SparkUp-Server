@@ -89,16 +89,16 @@ API documentation is available at `/docs` endpoint for each blueprint:
 ```
 sparkup/
 ├── app/
-│   ├── extensions.py      # Flask extensions
-│   ├── config.py         # Configuration
+│   ├── extensions.py    # Flask extensions
+│   ├── config.py        # Configuration
 │   ├── main.py          # Application factory
 │   ├── models.py        # Database models
 │   ├── utils.py         # Utility functions
 │   └── routes/          # API routes
 ├── migrations/          # Database migrations
 ├── requirements.txt     # Project dependencies
-├── run.py              # Application entry point
-└── README.md           # This file
+├── run.py               # Application entry point
+└── README.md            # This file
 ```
 
 ## Database Models
