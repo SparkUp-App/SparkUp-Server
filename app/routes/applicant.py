@@ -4,7 +4,7 @@ from sqlalchemy import exists, select
 from sqlalchemy.orm import joinedload
 
 from app.utils import jsonify_response, to_iso8601
-from app.extensions import db
+from app.extensions import db, socketio
 from app.models import Post, User, DictItem, PostApplicant, Profile, ChatRoomUser
 
 applicant_bp = Blueprint('applicant_bp', __name__)
@@ -124,7 +124,8 @@ class CreateApplicant(Resource):
             return jsonify_response({'error': 'Already apply this post', }, 400)
 
         # Check User
-        if not db.session.scalar(select(exists().where(User.id == user_id))):
+        user_profile = Profile.query.get(user_id)
+        if not user_profile:
             return jsonify_response({'error': 'User not found', }, 404)
 
         # Check Post
@@ -143,6 +144,15 @@ class CreateApplicant(Resource):
             post.manual_update()
             db.session.add(applicant)
             db.session.commit()
+
+            host_room = f"user_{post.user_id}"
+            socketio.emit('new_application', {
+                'post_id': data['post_id'],
+                'post_title': post.title,
+                'user_nickname': user_profile.nickname,
+                'message': f"New application for '{post.title}' from {user_profile.nickname}!"
+            }, to=host_room)
+
             return jsonify_response({'message': "Application create successfully"}, 200)
 
         except Exception as e:
@@ -233,8 +243,6 @@ class ReviewApplicant(Resource):
             return jsonify_response({'error': f'Applicant already reviewed: {applicant.review_status}'}, 400)
 
         try:
-            from app.extensions import socketio
-
             if data['approve']:
                 if applicant.post.number_of_people_required == 0:
                     applicant.review_status = 1
