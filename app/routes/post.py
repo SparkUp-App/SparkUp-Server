@@ -3,7 +3,7 @@ from collections import OrderedDict
 from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from pkg_resources import require
-from sqlalchemy import case, exists, select
+from sqlalchemy import case, exists, select, func, text
 
 from app.utils import jsonify_response, to_datetime, to_iso8601
 from app.extensions import db
@@ -228,12 +228,13 @@ class ListPost(Resource):
             if 'type' not in data or data['type'] is None:
                 profile = Profile.query.get(user_id)
                 if profile and profile.interest_types != []:
-                    interest_types = list(profile.interest_types)
+                    interest_types = tuple(profile.interest_types)
+                    print(interest_types)
                     post_query = post_query.order_by(
                         case(
-                            (Post.type.in_(interest_types), 0),
-                            else_=1
-                        ),
+                            (Post.type.in_(interest_types), 1),
+                            else_=0
+                        ).desc(),
                         Post.post_last_updated_date.desc()
                     )
         else:
