@@ -219,13 +219,13 @@ class ListPost(Resource):
         # Filter and Sort
         if 'user_id' in data and data['user_id'] is not None:
             post_query = post_query.filter_by(user_id=data['user_id'])
-        if 'type' in data and data['type'] is not None and data['type'] != []:
+        if 'type' in data and data['type'] is not None and data['type']:
             post_query = post_query.filter(Post.type.in_(data['type']))
         if 'keyword' in data and data['keyword'] is not None and data['keyword'] != "":
             post_query = post_query.filter(Post.title.ilike(f'%{data["keyword"]}%'))
         if data.get('sort', 1) == 0:
             # Recommendation System
-            if 'type' not in data or data['type'] is None:
+            if 'type' not in data or data['type'] is None or not data['type']:
                 profile = Profile.query.get(user_id)
                 if profile and profile.interest_types != []:
                     interest_types = tuple(profile.interest_types)
