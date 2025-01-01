@@ -4,6 +4,7 @@ from flask import Blueprint, current_app, request
 from flask_restx import Api, Resource, fields
 from pkg_resources import require
 from sqlalchemy import case, exists, select, func, text
+from datetime import datetime, timezone
 
 from app.utils import jsonify_response, to_datetime, to_iso8601
 from app.extensions import db
@@ -36,6 +37,7 @@ post_model = post_api.model(
         'attributes': DictItem("Dictionary(String : Any)"),
     }
 )
+
 
 @post_ns.route('/create')
 class CreatePost(Resource):
@@ -217,6 +219,7 @@ class ListPost(Resource):
         current_app.logger.info(f"Getting posts by user: {user_id} with request: {data}")
 
         # Filter and Sort
+        post_query = post_query.filter(Post.event_end_date > datetime.now(timezone.utc))
         if 'user_id' in data and data['user_id'] is not None:
             post_query = post_query.filter_by(user_id=data['user_id'])
         if 'type' in data and data['type'] is not None and data['type']:
