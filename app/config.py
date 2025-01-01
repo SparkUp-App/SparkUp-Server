@@ -15,6 +15,6 @@ class Config:
         'pool_timeout': 20,
         'pool_size': 30,
         'max_overflow': 20,
-        'pool_reset_on_return': 'rollback',
-        'prepared_statement_cache_size': 100
+        'pool_reset_on_return': 'rollback'
+        #'prepared_statement_cache_size': 100
     }
