@@ -247,6 +247,15 @@ class ReviewApplicant(Resource):
                 if applicant.post.number_of_people_required == 0:
                     applicant.review_status = 1
                     current_app.logger.error('No people required')
+
+                    user_room = f"user_{data['user_id']}"
+                    socketio.emit('application_rejected', {
+                        'post_id': data['post_id'],
+                        'post_title': applicant.post.title,
+                        'host_nickname': applicant.post.user.profile.nickname,
+                        'message': f"Your application for '{applicant.post.title}' has been rejected."
+                    }, to=user_room)
+
                     return jsonify_response({'error': 'No people required'}, 409)
 
                 applicant.post.number_of_people_required -= 1
