@@ -247,7 +247,7 @@ class ReviewApplicant(Resource):
                 if applicant.post.number_of_people_required == 0:
                     applicant.review_status = 1
                     current_app.logger.error('No people required')
-                    return jsonify_response({'error': 'No people required'}, 400)
+                    return jsonify_response({'error': 'No people required'}, 409)
 
                 applicant.post.number_of_people_required -= 1
                 applicant.post.manual_update()
