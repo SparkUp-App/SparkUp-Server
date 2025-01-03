@@ -255,7 +255,7 @@ class ChatRoomUsers(Resource):
             users = []
             for room_user, user, profile in room_users:
                 # Calculate participation count and level
-                participated = user.chat_rooms.count() - user.posts.count()
+                participated = user.chat_rooms.count()
                 level = 0
                 if 11 <= participated <= 20:
                     level = 1

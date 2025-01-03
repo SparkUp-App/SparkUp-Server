@@ -43,7 +43,7 @@ class ViewUser(Resource):
             current_app.logger.error(f'User or Profile not found: {user_id}')
             return jsonify_response({'error': 'User or Profile not found'}, 404)
 
-        participated = user.chat_rooms.count() - user.posts.count()
+        participated = user.chat_rooms.count()
 
         # Calculate level based on participation
         level = 0
